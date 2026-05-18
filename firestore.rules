@@ -1,0 +1,66 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Global Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin" ||
+        request.auth.token.email == "pranay.01.kar@gmail.com"
+      );
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Users Collection
+    match /users/{userId} {
+      allow get: if isSignedIn() && (isOwner(userId) || isAdmin());
+      allow list: if isAdmin();
+      
+      function isValidUser(data) {
+        return data.keys().hasAll(['uid', 'email', 'role', 'subscription', 'createdAt']) &&
+               data.uid == request.auth.uid &&
+               data.email is string &&
+               data.role in ['user', 'admin'] &&
+               data.subscription in ['free', 'pro', 'premium', 'enterprise'];
+      }
+
+      allow create: if isSignedIn() && isOwner(userId) && isValidUser(request.resource.data);
+      allow update: if isSignedIn() && (isOwner(userId) || isAdmin()) && 
+                    request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'subscription', 'role']);
+    }
+
+    // Projects Collection
+    match /projects/{projectId} {
+      allow get: if isSignedIn() && (isOwner(resource.data.ownerId) || isAdmin());
+      allow list: if isSignedIn() && (request.query.limit <= 100); // Clients MUST query by ownerId
+
+      function isValidProject(data) {
+        return data.keys().hasAll(['id', 'name', 'ownerId', 'status', 'createdAt', 'updatedAt']) &&
+               data.ownerId == request.auth.uid &&
+               data.name is string && data.name.size() <= 100 &&
+               data.status in ['active', 'archived'];
+      }
+
+      allow create: if isSignedIn() && isValidProject(request.resource.data);
+      allow update: if isSignedIn() && (isOwner(resource.data.ownerId) || isAdmin()) && 
+                    isValidProject(request.resource.data);
+      allow delete: if isSignedIn() && (isOwner(resource.data.ownerId) || isAdmin());
+    }
+  }
+}

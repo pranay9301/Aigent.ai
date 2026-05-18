@@ -1,0 +1,55 @@
+@import "tailwindcss";
+
+@theme {
+  --color-slate-950: #020617;
+  --color-slate-900: #0f172a;
+  --color-slate-800: #1e293b;
+  --color-cyan-400: #22d3ee;
+  --color-cyan-500: #06b6d4;
+  
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+@layer base {
+  body {
+    @apply bg-white dark:bg-black text-slate-900 dark:text-slate-300 font-sans selection:bg-cyan-500/30 overflow-x-hidden transition-colors duration-300;
+  }
+}
+
+@layer components {
+  .glass-panel {
+    @apply bg-white/50 dark:bg-white/[0.02] backdrop-blur-xl border border-black/5 dark:border-white/10 shadow-2xl;
+  }
+  
+  .glass-card {
+    @apply bg-black/5 dark:bg-slate-900/30 backdrop-blur-md border border-black/5 dark:border-white/5 hover:border-cyan-500/20 transition-all duration-300;
+  }
+
+  .cyan-glow {
+    @apply shadow-[0_0_20px_rgba(34,211,238,0.1)];
+  }
+
+  /* Custom Scrollbar for the Cyberpunk look */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-white/10 rounded-full hover:bg-cyan-500/30 transition-colors;
+  }
+}
+
+/* Animations from the theme */
+@keyframes pulse-cyan {
+  0% { box-shadow: 0 0 0 0 rgba(34, 211, 238, 0.4); }
+  70% { box-shadow: 0 0 0 8px rgba(34, 211, 238, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(34, 211, 238, 0); }
+}
+
+.animate-pulse-cyan {
+  animation: pulse-cyan 2s infinite;
+}

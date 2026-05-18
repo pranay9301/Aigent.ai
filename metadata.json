@@ -1,0 +1,6 @@
+{
+  "name": "Aigent.ai",
+  "description": "The Neural-Optimized AI Business OS. Orchestrate a high-throughput workforce of autonomous agents with surgical context pruning and high-speed local caching architecture.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
