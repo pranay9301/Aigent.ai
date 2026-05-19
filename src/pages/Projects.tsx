@@ -66,14 +66,14 @@ export default function Projects() {
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-8 mb-16">
           <div>
             <div className="flex items-center gap-3 mb-2">
-              <div className="w-2 h-2 rounded-full bg-cyan-500 shadow-[0_0_8px_rgba(6,182,212,0.5)] animate-pulse" />
-              <span className="text-[10px] font-black tracking-[0.4em] text-cyan-600 dark:text-cyan-500 uppercase italic">Central_Registry</span>
+              <div className="w-2 h-2 rounded-full bg-cyan-500 shadow-[0_0_8px_rgba(6,182,212,0.5)]" />
+              <span className="text-xs font-bold tracking-wider text-cyan-700 dark:text-cyan-500 uppercase">Central_Registry</span>
             </div>
-            <h1 className="text-5xl lg:text-7xl font-black italic text-slate-900 dark:text-white uppercase tracking-tighter leading-none font-sans">Neural Projects</h1>
+            <h1 className="text-5xl lg:text-7xl font-bold text-slate-900 dark:text-white uppercase tracking-tighter leading-none font-sans">Neural Projects</h1>
           </div>
           <button 
             onClick={() => setIsModalOpen(true)}
-            className="group px-10 py-5 bg-slate-900 dark:bg-cyan-500 hover:bg-slate-800 dark:hover:bg-cyan-400 text-white dark:text-slate-950 font-black rounded-[2rem] flex items-center gap-4 transition-all shadow-2xl shadow-cyan-500/10 active:scale-95 text-xs uppercase tracking-[0.2em] italic"
+            className="group px-10 py-5 bg-slate-900 dark:bg-cyan-500 hover:bg-slate-800 dark:hover:bg-cyan-400 text-white dark:text-slate-950 font-bold rounded-2xl flex items-center gap-4 transition-all shadow-xl shadow-cyan-500/10 active:scale-95 text-xs uppercase tracking-widest"
           >
             <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform duration-500" /> 
             <span>Initialize New Node</span>
@@ -131,22 +131,22 @@ export default function Projects() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.05 }}
                   onClick={() => navigate(`/workspace/${p.id}`)}
-                  className="group p-10 rounded-[3.5rem] bg-slate-50 dark:bg-white/[0.01] border border-black/5 dark:border-white/5 hover:border-cyan-500/30 dark:hover:border-cyan-500/30 transition-all cursor-pointer relative overflow-hidden shadow-sm hover:shadow-2xl hover:shadow-cyan-500/5 hover:-translate-y-1"
+                  className="group p-10 rounded-3xl bg-white dark:bg-slate-900 border border-black/10 dark:border-white/5 hover:border-cyan-500/30 dark:hover:border-cyan-500/30 transition-all cursor-pointer relative overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-1"
                 >
                   <div className="flex justify-between items-start mb-8">
-                    <div className="p-5 rounded-[1.5rem] bg-white dark:bg-slate-900 border border-black/5 dark:border-white/5 text-slate-400 group-hover:text-cyan-500 transition-colors shadow-sm">
+                    <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-black/5 dark:border-white/5 text-slate-400 group-hover:text-cyan-600 dark:group-hover:text-cyan-400 transition-colors shadow-sm">
                       <Folder className="w-7 h-7" />
                     </div>
-                    <div className="px-4 py-1.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-500 text-[9px] font-black rounded-full uppercase italic border border-emerald-500/10">Active_Node</div>
+                    <div className="px-4 py-1.5 bg-emerald-500/10 text-emerald-700 dark:text-emerald-500 text-[10px] font-bold rounded-full uppercase border border-emerald-500/10">Active_Node</div>
                   </div>
-                  <h3 className="text-3xl font-black text-slate-900 dark:text-white italic group-hover:text-cyan-500 transition-colors uppercase tracking-tighter mb-3 leading-none">{p.name}</h3>
-                  <div className="flex items-center gap-3 text-[10px] text-slate-400 dark:text-slate-600 font-mono uppercase tracking-[0.2em] mb-10 italic">
+                  <h3 className="text-3xl font-bold text-slate-950 dark:text-white group-hover:text-cyan-700 dark:group-hover:text-cyan-400 transition-colors uppercase tracking-tight mb-3 leading-none">{p.name}</h3>
+                  <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-500 font-mono uppercase tracking-wider mb-10">
                     <Clock className="w-3 h-3" /> {formatDate(p.createdAt)}
                   </div>
-                  <div className="flex items-center justify-between pt-6 border-t border-black/5 dark:border-white/5">
-                    <span className="text-[10px] font-black text-slate-300 dark:text-slate-800 font-mono tracking-widest">{p.id.slice(0, 12)}...</span>
-                    <div className="p-3 bg-white dark:bg-white/5 rounded-2xl group-hover:scale-110 transition-transform">
-                      <ChevronRight className="w-5 h-5 text-slate-300 dark:text-slate-800 group-hover:text-cyan-500 transition-all" />
+                  <div className="flex items-center justify-between pt-6 border-t border-black/5 dark:border-white/10">
+                    <span className="text-[10px] font-bold text-slate-400 dark:text-slate-700 font-mono tracking-widest">{p.id.slice(0, 12)}...</span>
+                    <div className="p-2 bg-slate-50 dark:bg-white/5 rounded-xl group-hover:scale-110 transition-transform">
+                      <ChevronRight className="w-5 h-5 text-slate-400 dark:text-slate-600 group-hover:text-cyan-600 dark:group-hover:text-cyan-400 transition-all" />
                     </div>
                   </div>
                 </motion.div>

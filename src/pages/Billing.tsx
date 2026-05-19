@@ -130,22 +130,22 @@ export default function Billing() {
       >
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
           <div>
-            <h1 className="text-3xl font-black italic mb-2 tracking-tight text-white uppercase">SUBSCRIPTION HUB</h1>
-            <p className="text-slate-500 text-xs font-bold uppercase tracking-widest leading-relaxed font-mono">Manage your neural workforce assets and billing.</p>
+            <h1 className="text-3xl font-bold mb-2 tracking-tight text-slate-900 dark:text-white uppercase">SUBSCRIPTION HUB</h1>
+            <p className="text-slate-500 dark:text-slate-400 text-sm font-medium uppercase tracking-wide leading-relaxed">Manage your neural workforce assets and billing.</p>
           </div>
           <div className="flex items-center gap-2 px-4 py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-full">
-            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-            <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Active Tier: Enterprise</span>
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+            <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Active Tier: Enterprise</span>
           </div>
         </div>
 
         {/* Navigation Tabs */}
-        <div className="flex gap-1 p-1 bg-white/5 rounded-xl w-fit mb-8">
+        <div className="flex gap-1 p-1 bg-black/5 dark:bg-white/5 rounded-xl w-fit mb-8 shadow-sm">
           <button 
             onClick={() => setActiveTab("overview")}
             className={cn(
-              "px-6 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all",
-              activeTab === "overview" ? "bg-cyan-500 text-slate-950" : "text-slate-400 hover:text-white"
+              "px-6 py-2.5 text-xs font-bold uppercase tracking-wider rounded-lg transition-all",
+              activeTab === "overview" ? "bg-slate-900 dark:bg-cyan-500 text-white dark:text-slate-950 shadow-md" : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
             )}
           >
             Overview
@@ -153,8 +153,8 @@ export default function Billing() {
           <button 
             onClick={() => setActiveTab("history")}
             className={cn(
-              "px-6 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all",
-              activeTab === "history" ? "bg-cyan-500 text-slate-950" : "text-slate-400 hover:text-white"
+              "px-6 py-2.5 text-xs font-bold uppercase tracking-wider rounded-lg transition-all",
+              activeTab === "history" ? "bg-slate-900 dark:bg-cyan-500 text-white dark:text-slate-950 shadow-md" : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
             )}
           >
             Transaction History
@@ -170,30 +170,30 @@ export default function Billing() {
                 <div className="relative z-10">
                   <div className="flex justify-between items-start mb-8">
                     <div>
-                      <h2 className="text-2xl font-black italic text-white uppercase mb-1">Aigent Enterprise</h2>
-                      <p className="text-slate-400 text-xs font-mono">Billed annually • Next renewal: May 01, 2027</p>
+                      <h2 className="text-2xl font-bold text-slate-900 dark:text-white uppercase mb-1">Aigent Enterprise</h2>
+                      <p className="text-slate-500 dark:text-slate-400 text-xs font-medium">Billed annually • Next renewal: May 01, 2027</p>
                     </div>
                     <div className="text-right">
-                      <div className="text-3xl font-black text-white italic">$299<span className="text-sm font-normal text-slate-500 tracking-normal">/mo</span></div>
+                      <div className="text-3xl font-bold text-slate-900 dark:text-white">$299<span className="text-sm font-normal text-slate-500 tracking-normal">/mo</span></div>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {usageStats.map((stat, i) => (
-                      <div key={i} className="p-4 rounded-2xl bg-white/5 border border-white/5">
+                      <div key={i} className="p-4 rounded-2xl bg-black/5 dark:bg-slate-800/50 border border-black/5 dark:border-white/5">
                         <div className="flex items-center justify-between mb-2">
-                          <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">{stat.label}</span>
-                          <span className={cn("font-mono text-xs font-bold", stat.color)}>{stat.value}</span>
+                          <span className="text-[10px] font-bold text-slate-500 dark:text-slate-500 uppercase tracking-wider">{stat.label}</span>
+                          <span className={cn("font-mono text-sm font-bold", stat.color)}>{stat.value}</span>
                         </div>
                         {stat.percent > 0 && (
-                          <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
+                          <div className="h-1.5 w-full bg-black/5 dark:bg-white/5 rounded-full overflow-hidden">
                             <div 
                               className={cn("h-full transition-all duration-1000", stat.color.replace('text', 'bg'))} 
                               style={{ width: `${stat.percent}%` }} 
                             />
                           </div>
                         )}
-                        <span className="text-[8px] text-slate-600 mt-1 block uppercase tracking-tighter">Limit: {stat.limit}</span>
+                        <span className="text-[9px] text-slate-500 dark:text-slate-600 mt-2 block uppercase tracking-wide font-medium">Limit: {stat.limit}</span>
                       </div>
                     ))}
                   </div>
@@ -201,45 +201,45 @@ export default function Billing() {
               </div>
 
               {/* Payment Methods */}
-              <div className="p-8 rounded-[2rem] border border-white/5 bg-white/[0.02]">
+              <div className="p-8 rounded-[2rem] border border-black/10 dark:border-white/5 bg-white dark:bg-slate-900 shadow-sm">
                 <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-sm font-black italic text-white uppercase tracking-widest flex items-center gap-2">
-                    <ExternalLink className="w-4 h-4 text-cyan-400" /> Neural Payment Gateway
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+                    <ExternalLink className="w-4 h-4 text-cyan-600 dark:text-cyan-400" /> Neural Payment Gateway
                   </h3>
                 </div>
                 
                 <div className="space-y-6">
                   {isLoadingConfig ? (
-                    <div className="flex items-center gap-3 p-4 bg-white/5 rounded-xl animate-pulse">
+                    <div className="flex items-center gap-3 p-4 bg-black/5 dark:bg-white/5 rounded-xl animate-pulse">
                       <div className="w-4 h-4 rounded-full bg-cyan-500/20" />
-                      <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Synchronizing Neural Gateways...</span>
+                      <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Synchronizing Neural Gateways...</span>
                     </div>
                   ) : (!isPaypalConfigured && !isRazorpayConfigured) && (
                     <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-start gap-3 mb-6">
-                      <AlertCircle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                      <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
                       <div>
-                        <p className="text-[10px] font-black text-amber-400 uppercase tracking-widest mb-1">Configuration Required</p>
-                        <p className="text-[10px] text-slate-400 italic">The Payment Systems are currently in restricted mode. To enable real neural transactions, you must provide valid API keys in the System Settings Hub.</p>
+                        <p className="text-xs font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider mb-1">Configuration Required</p>
+                        <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed font-medium">The Payment Systems are currently in restricted mode. Please provide valid API keys in the System Settings Hub to enable transactions.</p>
                       </div>
                     </div>
                   )}
                   
-                  <p className="text-xs text-slate-500 italic mb-4">Aigent.ai uses PayPal & Razorpay for decentralized neural workforce transactions. Select your upgrade tier below.</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-500 italic mb-4 font-medium uppercase tracking-tight">Select your upgrade tier below to scale your neural workforce.</p>
                   
                   <div className="space-y-4">
                     {/* Scale Tier Button */}
-                    <div className="p-6 rounded-2xl bg-white/5 border border-white/5 hover:border-cyan-500/30 transition-all">
+                    <div className="p-6 rounded-2xl bg-black/[0.02] dark:bg-white/[0.02] border border-black/5 dark:border-white/5 hover:border-cyan-500/30 transition-all">
                       <div className="flex justify-between items-center mb-6">
                         <div>
-                          <span className="text-[10px] font-black text-white uppercase tracking-widest block mb-1">Upgrade to SCALE Tier</span>
-                          <span className="text-[8px] text-slate-500 uppercase font-mono tracking-tighter">Recommended for solo founders</span>
+                          <span className="text-xs font-bold text-slate-800 dark:text-white uppercase tracking-wider block mb-1">Scale Tier</span>
+                          <span className="text-[10px] text-slate-500 dark:text-slate-600 uppercase font-bold tracking-tight">Recommended for solo founders</span>
                         </div>
-                        <span className="text-xs font-black text-cyan-400 italic">$69.00/mo</span>
+                        <span className="text-sm font-bold text-cyan-600 dark:text-cyan-400 italic">$69.00/mo</span>
                       </div>
                       
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <label className="text-[8px] font-black text-slate-600 uppercase tracking-widest block px-1">Global Gateway</label>
+                          <label className="text-[10px] font-bold text-slate-400 dark:text-slate-600 uppercase tracking-wider block px-1">Global Gateway</label>
                           <PayPalScriptProvider options={paypalOptions}>
                             <PayPalButtons 
                               style={{ layout: "horizontal", height: 35, color: "blue", shape: "rect", label: "pay" }}

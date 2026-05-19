@@ -23,13 +23,13 @@ export default function LandingPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
         >
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-cyan-500/30 bg-cyan-500/5 text-cyan-600 dark:text-cyan-400 text-[10px] font-black mb-10 uppercase tracking-[0.2em] animate-pulse">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-cyan-500/30 bg-cyan-500/5 text-cyan-600 dark:text-cyan-400 text-xs font-bold mb-10 uppercase tracking-wider">
             <Sparkles className="w-3.5 h-3.5" /> Autonomous AI Workforce is Online
           </div>
-          <h1 className="text-6xl md:text-8xl lg:text-9xl font-black mb-8 text-slate-900 dark:text-white leading-[0.9] tracking-tighter italic uppercase">
+          <h1 className="text-6xl md:text-8xl lg:text-9xl font-bold mb-8 text-slate-900 dark:text-white leading-[0.9] tracking-tighter uppercase">
             The AI <br /><span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-600 to-blue-600 dark:from-cyan-400 dark:to-blue-400">Company</span>
           </h1>
-          <p className="text-lg md:text-xl text-slate-500 dark:text-slate-400 max-w-2xl mx-auto mb-12 leading-relaxed font-black uppercase tracking-tight opacity-90">
+          <p className="text-lg md:text-xl text-slate-600 dark:text-slate-400 max-w-2xl mx-auto mb-12 leading-relaxed font-medium uppercase tracking-tight">
             Stop building. Start orchestrating. The world's first autonomous AI workforce that designs, develops, and deploys your entire neural company in minutes.
           </p>
           <div className="flex flex-col sm:flex-row gap-5 justify-center items-center">
@@ -46,8 +46,8 @@ export default function LandingPage() {
       {/* Agents Section */}
       <section className="container mx-auto px-6 py-32 border-t border-black/5 dark:border-white/10 transition-colors">
         <div className="text-center mb-24">
-          <h2 className="text-4xl md:text-5xl font-black mb-6 text-slate-900 dark:text-white uppercase italic tracking-tighter">Your Neural Workforce</h2>
-          <p className="text-slate-400 dark:text-slate-500 max-w-lg mx-auto uppercase text-[10px] font-black tracking-[0.3em] leading-relaxed">Interconnected AI Agents designed for extreme precision and autonomous throughput.</p>
+          <h2 className="text-4xl md:text-5xl font-bold mb-6 text-slate-900 dark:text-white uppercase tracking-tighter">Your Neural Workforce</h2>
+          <p className="text-slate-500 dark:text-slate-400 max-w-lg mx-auto uppercase text-xs font-bold tracking-wider leading-relaxed">Interconnected AI Agents designed for extreme precision and autonomous throughput.</p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           {[
@@ -69,12 +69,12 @@ export default function LandingPage() {
               className={cn("p-8 rounded-[2rem] border transition-all group relative overflow-hidden bg-white dark:bg-white/[0.02]", agent.bg, agent.border)}
             >
               <div className="absolute top-6 right-6 flex items-center gap-2">
-                <div className={cn("w-1.5 h-1.5 rounded-full", agent.status !== "IDLE" ? "animate-pulse shadow-lg" : "", agent.color.replace('text', 'bg'))} />
-                <span className="text-[10px] font-black tracking-widest text-slate-400 dark:text-slate-500">{agent.status}</span>
+                <div className={cn("w-1.5 h-1.5 rounded-full", agent.status !== "IDLE" ? "shadow-lg" : "", agent.color.replace('text', 'bg'))} />
+                <span className="text-[11px] font-bold tracking-wider text-slate-500 dark:text-slate-400">{agent.status}</span>
               </div>
               <agent.icon className={cn("w-12 h-12 mb-8 group-hover:scale-110 transition-transform", agent.color)} />
-              <h3 className="text-xl font-black mb-3 text-slate-900 dark:text-white italic uppercase tracking-tight">{agent.name}</h3>
-              <p className="text-slate-500 dark:text-slate-500 text-xs leading-relaxed font-black uppercase tracking-tighter opacity-80">{agent.desc}</p>
+              <h3 className="text-xl font-bold mb-3 text-slate-900 dark:text-white uppercase tracking-tight">{agent.name}</h3>
+              <p className="text-slate-500 dark:text-slate-500 text-xs leading-relaxed font-bold uppercase tracking-tight opacity-90">{agent.desc}</p>
             </motion.div>
           ))}
         </div>
