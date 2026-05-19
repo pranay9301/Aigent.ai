@@ -27,25 +27,46 @@ const ai = new GoogleGenAI({
 
 // API routes go here FIRST
 app.get("/api/health", (req, res) => {
-  const healthStatus = {
-    status: "ok",
-    timestamp: new Date().toISOString(),
-    services: {
-      gemini: process.env.GEMINI_API_KEY ? "healthy" : "disconnected",
-      paypal: getPayPalClient() ? "healthy" : "disconnected",
-      razorpay: process.env.RAZORPAY_KEY_ID ? "healthy" : "idle"
-    },
-    version: "1.2.0-neural"
-  };
-  res.json(healthStatus);
+  try {
+    const healthStatus = {
+      status: "ok",
+      timestamp: new Date().toISOString(),
+      services: {
+        gemini: !!process.env.GEMINI_API_KEY ? "healthy" : "disconnected",
+        paypal: !!(process.env.PAYPAL_CLIENT_ID || process.env.VITE_PAYPAL_CLIENT_ID) ? "connected" : "disconnected",
+        razorpay: !!process.env.RAZORPAY_KEY_ID ? "healthy" : "idle"
+      },
+      version: "1.2.1-neural"
+    };
+    res.json(healthStatus);
+  } catch (err) {
+    res.status(500).json({ error: "Health check failed" });
+  }
 });
 
 app.get("/api/config", (req, res) => {
-  res.json({
-    paypalClientId: process.env.PAYPAL_CLIENT_ID || "",
-    razorpayKeyId: process.env.RAZORPAY_KEY_ID || "",
-    isPaypalLive: process.env.PAYPAL_MODE === "live"
-  });
+  try {
+    const paypalId = process.env.PAYPAL_CLIENT_ID || process.env.VITE_PAYPAL_CLIENT_ID || "";
+    const razorpayId = process.env.RAZORPAY_KEY_ID || process.env.VITE_RAZORPAY_KEY_ID || "";
+    
+    // Minimal logging to avoid potential string conversion crashes
+    console.log(`[Neural-Config] Dispatching keys. PayPal present: ${!!paypalId}`);
+    
+    res.json({
+      paypalClientId: paypalId,
+      razorpayKeyId: razorpayId,
+      isPaypalLive: process.env.PAYPAL_MODE === "live",
+      diagnostics: {
+        timestamp: new Date().toISOString(),
+        has_paypal: !!paypalId,
+        has_secret: !!process.env.PAYPAL_CLIENT_SECRET,
+        mode: process.env.PAYPAL_MODE || "sandbox"
+      }
+    });
+  } catch (error) {
+    console.error("Critical Failure in /api/config:", error);
+    res.status(500).json({ error: "INTERNAL_GATEWAY_ERROR", details: "Neural configuration failed to serialize" });
+  }
 });
 
 // AI Agent Orchestration Endpoint
@@ -157,7 +178,7 @@ let paypalClientInstance: any = null;
 const getPayPalClient = () => {
   if (paypalClientInstance) return paypalClientInstance;
 
-  const clientId = process.env.PAYPAL_CLIENT_ID;
+  const clientId = process.env.PAYPAL_CLIENT_ID || process.env.VITE_PAYPAL_CLIENT_ID;
   const clientSecret = process.env.PAYPAL_CLIENT_SECRET;
   
   if (!clientId || !clientSecret || clientId === "sb") {
@@ -293,7 +314,7 @@ async function setupVite() {
   }
 
   // Only listen if not running in a serverless environment
-  if (process.env.NODE_ENV !== "production" || !process.env.VERCEL) {
+  if (process.env.NODE_ENV !== "production") {
     app.listen(PORT, "0.0.0.0", () => {
       console.log(`Server running on http://localhost:${PORT}`);
     });

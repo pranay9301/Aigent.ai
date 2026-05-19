@@ -1,54 +1,61 @@
-import { DatabaseSync } from "node:sqlite";
-import Parser from "tree-sitter";
-import TypeScript from "tree-sitter-typescript";
-import msgpack from "msgpack-lite";
-import * as fs from "fs";
-import * as path from "path";
+import { createRequire } from "module";
+const require = createRequire(import.meta.url);
 
-// --- 1. Local Neural Caching (SQLite) ---
-const isVercel = process.env.VERCEL || process.env.VERCEL_ENV;
-const dbPath = isVercel 
-  ? path.join("/tmp", "neural_cache.db")
-  : path.join(process.cwd(), "neural_cache.db");
-
-const db = new DatabaseSync(dbPath);
-
-// Initialize Cache Table
-db.exec(`
-  CREATE TABLE IF NOT EXISTS neural_cache (
-    key TEXT PRIMARY KEY,
-    value BLOB,
-    expires_at INTEGER
-  )
-`);
+// --- 1. Memory-Safe Neural Caching ---
+// Using Map for serverless-friendly ephemeral caching
+const memCache = new Map<string, { value: any, expires: number }>();
 
 export const cache = {
   get: (key: string) => {
-    const row = db.prepare("SELECT value FROM neural_cache WHERE key = ? AND expires_at > ?").get(key, Date.now()) as any;
-    if (row) {
-      return msgpack.decode(Buffer.from(row.value));
+    const entry = memCache.get(key);
+    if (entry && entry.expires > Date.now()) {
+      return entry.value;
     }
+    if (entry) memCache.delete(key);
     return null;
   },
   set: (key: string, value: any, ttlSeconds: number = 3600) => {
-    const encoded = msgpack.encode(value);
-    const expiresAt = Date.now() + (ttlSeconds * 1000);
-    db.prepare("INSERT OR REPLACE INTO neural_cache (key, value, expires_at) VALUES (?, ?, ?)").run(key, encoded, expiresAt);
+    memCache.set(key, {
+      value,
+      expires: Date.now() + (ttlSeconds * 1000)
+    });
+    
+    // Simple cleanup for memory protection (keep under 500 entries)
+    if (memCache.size > 500) {
+      const firstKey = memCache.keys().next().value;
+      if (firstKey !== undefined) memCache.delete(firstKey);
+    }
   }
 };
 
-// --- 2. Surgical Context Extraction (Tree-sitter) ---
-const parser = new Parser();
-const typescriptLang = (TypeScript as any).typescript || (TypeScript as any);
-parser.setLanguage(typescriptLang);
+// --- 2. Safe Context Extraction ---
+// We avoid crashing if native tree-sitter modules fail to load in serverless environments
+let parser: any = null;
+
+const getParser = () => {
+  if (parser) return parser;
+  try {
+    const Parser = require("tree-sitter");
+    const TypeScript = require("tree-sitter-typescript");
+    parser = new Parser();
+    const typescriptLang = TypeScript.typescript || TypeScript;
+    parser.setLanguage(typescriptLang);
+    return parser;
+  } catch (err) {
+    console.warn("Neural Warning: Native tree-sitter omitted in this environment. Falling back to simple pruning.");
+    return null;
+  }
+};
 
 export const pruneContext = (code: string): string => {
+  const p = getParser();
+  if (!p) return code.slice(0, 1500); // Robust fallback
+
   try {
-    const tree = parser.parse(code);
+    const tree = p.parse(code);
     const root = tree.rootNode;
     
     // We extract only important nodes (Interface declarations, Function signatures, Class definitions)
-    // to reduce token noise while keeping structural integrity.
     const nodes = root.descendantsOfType([
       "interface_declaration",
       "function_declaration",
@@ -58,15 +65,15 @@ export const pruneContext = (code: string): string => {
       "export_statement"
     ]);
 
-    if (nodes.length === 0) return code.slice(0, 500); // Fallback for very small files
+    if (nodes.length === 0) return code.slice(0, 800);
 
-    return nodes.map(node => node.text).join("\n\n");
+    return nodes.map((node: any) => node.text).join("\n\n");
   } catch (err) {
     console.error("Neural Pruning Error:", err);
-    return code.slice(0, 1000); // Safe fallback
+    return code.slice(0, 1000); 
   }
 };
 
-// --- 3. Binary Serialization Utilities ---
-export const serialize = (data: any) => msgpack.encode(data);
-export const deserialize = (buffer: Buffer) => msgpack.decode(buffer);
+// --- 3. Binary Serialization Utilities (Minimal) ---
+export const serialize = (data: any) => JSON.stringify(data);
+export const deserialize = (str: string) => JSON.parse(str);

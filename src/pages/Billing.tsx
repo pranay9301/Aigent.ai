@@ -29,10 +29,17 @@ export default function Billing() {
     const fetchConfig = async () => {
       try {
         const res = await fetch("/api/config");
+        if (!res.ok) {
+          throw new Error(`GATEWAY_SYNC_FAILURE: Server responded with status ${res.status}`);
+        }
         const data = await res.json();
+        console.log("Neural Gateway Sync Result:", data);
+        if (data.diagnostics) {
+          console.log("Neural Infrastructure Check:", data.diagnostics);
+        }
         setDynamicConfig(data);
-      } catch (err) {
-        console.error("Failed to fetch dynamic configuration:", err);
+      } catch (err: any) {
+        console.error("Critical Gateway Synchronization Error:", err);
       } finally {
         setIsLoadingConfig(false);
       }
