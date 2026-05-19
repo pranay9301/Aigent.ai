@@ -1,9 +1,6 @@
 import express from "express";
 import path from "path";
-import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
-import paypal from "@paypal/checkout-server-sdk";
-import Razorpay from "razorpay";
 import crypto from "crypto";
 import { pruneContext, cache } from "./src/lib/neural-optim";
 
@@ -14,15 +11,37 @@ const PORT = 3000;
 
 app.use(express.json());
 
-// Initialize Gemini
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY,
-  httpOptions: {
-    headers: {
-      'User-Agent': 'aistudio-build',
-    }
+// Dynamic Import Cache
+let GoogleGenAI: any = null;
+let paypal: any = null;
+let Razorpay: any = null;
+
+const getAI = async () => {
+  if (!GoogleGenAI) {
+    const sdk = await import("@google/genai");
+    GoogleGenAI = sdk.GoogleGenAI;
   }
-});
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) return null;
+  return new GoogleGenAI({ apiKey: key });
+};
+
+const getRazorpay = async () => {
+  if (!Razorpay) {
+    Razorpay = (await import("razorpay")).default;
+  }
+  const key_id = process.env.RAZORPAY_KEY_ID || process.env.VITE_RAZORPAY_KEY_ID;
+  const key_secret = process.env.RAZORPAY_KEY_SECRET;
+  if (!key_id || !key_secret) return null;
+  return new Razorpay({ key_id, key_secret });
+};
+
+const getPayPalSDK = async () => {
+  if (!paypal) {
+    paypal = (await import("@paypal/checkout-server-sdk")).default;
+  }
+  return paypal;
+};
 
 // API routes go here FIRST
 app.get("/api/health", (req, res) => {
@@ -54,29 +73,25 @@ app.get("/api/config", (req, res) => {
     const paypalId = process.env.PAYPAL_CLIENT_ID || process.env.VITE_PAYPAL_CLIENT_ID || "";
     const razorpayId = process.env.RAZORPAY_KEY_ID || process.env.VITE_RAZORPAY_KEY_ID || "";
     
-    // Minimal logging to avoid potential string conversion crashes
-    console.log(`[Neural-Config] Dispatching keys. PayPal present: ${!!paypalId}`);
-    
     res.json({
       paypalClientId: paypalId,
       razorpayKeyId: razorpayId,
       isPaypalLive: process.env.PAYPAL_MODE === "live",
-      diagnostics: {
-        timestamp: new Date().toISOString(),
-        has_paypal: !!paypalId,
-        has_secret: !!process.env.PAYPAL_CLIENT_SECRET,
-        mode: process.env.PAYPAL_MODE || "sandbox"
-      }
+      serverMode: process.env.NODE_ENV || "development"
     });
   } catch (error) {
-    console.error("Critical Failure in /api/config:", error);
-    res.status(500).json({ error: "INTERNAL_GATEWAY_ERROR", details: "Neural configuration failed to serialize" });
+    res.status(500).json({ error: "CONFIG_ERROR" });
   }
 });
 
 // AI Agent Orchestration Endpoint
 app.post("/api/ai/orchestrate", async (req, res) => {
   const { prompt, context, role } = req.body;
+  const ai = await getAI();
+
+  if (!ai) {
+    return res.status(503).json({ error: "AI_SERVICE_UNAVAILABLE" });
+  }
 
   if (!prompt) {
     return res.status(400).json({ error: "Prompt is required" });
@@ -136,6 +151,11 @@ app.post("/api/ai/orchestrate", async (req, res) => {
 // App Building Endpoint (Complex)
 app.post("/api/ai/build", async (req, res) => {
   const { prompt } = req.body;
+  const ai = await getAI();
+
+  if (!ai) {
+    return res.status(503).json({ error: "AI_SERVICE_UNAVAILABLE" });
+  }
 
   try {
     // Stage 1: PM planning
@@ -177,27 +197,25 @@ app.post("/api/ai/build", async (req, res) => {
 });
 
 // --- PayPal Neural Payment Infrastructure ---
-
 let paypalClientInstance: any = null;
 
-const getPayPalClient = () => {
+const getPayPalClient = async () => {
   if (paypalClientInstance) return paypalClientInstance;
 
   const clientId = process.env.PAYPAL_CLIENT_ID || process.env.VITE_PAYPAL_CLIENT_ID;
   const clientSecret = process.env.PAYPAL_CLIENT_SECRET;
   
   if (!clientId || !clientSecret || clientId === "sb") {
-    console.warn("PAYPAL_CREDENTIALS_MISSING: Payment system is in idle mode. Please check PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET.");
     return null;
   }
 
   try {
+    const pp = await getPayPalSDK();
     const environment = process.env.PAYPAL_MODE === "live"
-      ? new paypal.core.LiveEnvironment(clientId, clientSecret)
-      : new paypal.core.SandboxEnvironment(clientId, clientSecret);
+      ? new pp.core.LiveEnvironment(clientId, clientSecret)
+      : new pp.core.SandboxEnvironment(clientId, clientSecret);
       
-    paypalClientInstance = new paypal.core.PayPalHttpClient(environment);
-    console.log(`PayPal initialized in ${process.env.PAYPAL_MODE || 'sandbox'} mode.`);
+    paypalClientInstance = new pp.core.PayPalHttpClient(environment);
     return paypalClientInstance;
   } catch (err) {
     console.error("PayPal Initialization Error:", err);
@@ -207,14 +225,15 @@ const getPayPalClient = () => {
 
 // Create PayPal Order
 app.post("/api/paypal/create-order", async (req, res) => {
-  const client = getPayPalClient();
+  const client = await getPayPalClient();
   if (!client) {
     return res.status(503).json({ error: "PAYPAL_NOT_CONFIGURED" });
   }
 
   const { amount, planName } = req.body;
+  const pp = await getPayPalSDK();
 
-  const request = new paypal.orders.OrdersCreateRequest();
+  const request = new pp.orders.OrdersCreateRequest();
   request.prefer("return=representation");
   request.requestBody({
     intent: "CAPTURE",
@@ -247,14 +266,15 @@ app.post("/api/paypal/create-order", async (req, res) => {
 
 // Capture PayPal Order
 app.post("/api/paypal/capture-order", async (req, res) => {
-  const client = getPayPalClient();
+  const client = await getPayPalClient();
   if (!client) {
     return res.status(503).json({ error: "PAYPAL_NOT_CONFIGURED" });
   }
 
   const { orderId } = req.body;
+  const pp = await getPayPalSDK();
 
-  const request = new paypal.orders.OrdersCaptureRequest(orderId);
+  const request = new pp.orders.OrdersCaptureRequest(orderId);
   request.requestBody({});
 
   try {
@@ -268,14 +288,15 @@ app.post("/api/paypal/capture-order", async (req, res) => {
 });
 
 // --- Razorpay Neural Payment Infrastructure ---
-
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID || "",
-  key_secret: process.env.RAZORPAY_KEY_SECRET || "",
-});
+let razorpayInstance: any = null;
 
 app.post("/api/razorpay/create-order", async (req, res) => {
   const { amount, currency = "USD" } = req.body;
+  const rzp = await getRazorpay();
+
+  if (!rzp) {
+    return res.status(503).json({ error: "RAZORPAY_NOT_CONFIGURED" });
+  }
 
   try {
     const options = {
@@ -284,7 +305,7 @@ app.post("/api/razorpay/create-order", async (req, res) => {
       receipt: `receipt_${Date.now()}`,
     };
 
-    const order = await razorpay.orders.create(options);
+    const order = await rzp.orders.create(options);
     res.json(order);
   } catch (error: any) {
     console.error("Razorpay Order Error:", error);
@@ -294,10 +315,15 @@ app.post("/api/razorpay/create-order", async (req, res) => {
 
 app.post("/api/razorpay/verify-payment", async (req, res) => {
   const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+  const key_secret = process.env.RAZORPAY_KEY_SECRET;
+
+  if (!key_secret) {
+    return res.status(401).json({ error: "RAZORPAY_SECRET_MISSING" });
+  }
 
   const sign = razorpay_order_id + "|" + razorpay_payment_id;
   const expectedSign = crypto
-    .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET || "")
+    .createHmac("sha256", key_secret)
     .update(sign.toString())
     .digest("hex");
 

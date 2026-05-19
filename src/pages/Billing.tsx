@@ -17,8 +17,8 @@ export default function Billing() {
     razorpayKeyId: string;
   } | null>(null);
 
-  const paypalClientId = import.meta.env.VITE_PAYPAL_CLIENT_ID || dynamicConfig?.paypalClientId;
-  const razorpayKeyId = import.meta.env.VITE_RAZORPAY_KEY_ID || dynamicConfig?.razorpayKeyId;
+  const paypalClientId = dynamicConfig?.paypalClientId || import.meta.env.VITE_PAYPAL_CLIENT_ID;
+  const razorpayKeyId = dynamicConfig?.razorpayKeyId || import.meta.env.VITE_RAZORPAY_KEY_ID;
   const isPaypalConfigured = !!paypalClientId && paypalClientId !== "" && paypalClientId !== "sb";
   const isRazorpayConfigured = !!razorpayKeyId && razorpayKeyId !== "";
 
@@ -34,9 +34,6 @@ export default function Billing() {
         }
         const data = await res.json();
         console.log("Neural Gateway Sync Result:", data);
-        if (data.diagnostics) {
-          console.log("Neural Infrastructure Check:", data.diagnostics);
-        }
         setDynamicConfig(data);
       } catch (err: any) {
         console.error("Critical Gateway Synchronization Error:", err);
