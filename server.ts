@@ -255,6 +255,8 @@ app.post("/api/razorpay/verify-payment", async (req, res) => {
   }
 });
 
+export default app;
+
 // Vite middleware for development
 async function setupVite() {
   if (process.env.NODE_ENV !== "production") {
@@ -271,9 +273,12 @@ async function setupVite() {
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-  });
+  // Only listen if not running in a serverless environment
+  if (process.env.NODE_ENV !== "production" || !process.env.VERCEL) {
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+    });
+  }
 }
 
 setupVite();

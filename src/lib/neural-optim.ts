@@ -6,7 +6,11 @@ import * as fs from "fs";
 import * as path from "path";
 
 // --- 1. Local Neural Caching (SQLite) ---
-const dbPath = path.join(process.cwd(), "neural_cache.db");
+const isVercel = process.env.VERCEL || process.env.VERCEL_ENV;
+const dbPath = isVercel 
+  ? path.join("/tmp", "neural_cache.db")
+  : path.join(process.cwd(), "neural_cache.db");
+
 const db = new DatabaseSync(dbPath);
 
 // Initialize Cache Table
