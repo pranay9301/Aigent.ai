@@ -12,13 +12,33 @@ import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
 export default function Billing() {
   const [activeTab, setActiveTab] = useState<"overview" | "history">("overview");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [dynamicConfig, setDynamicConfig] = useState<{
+    paypalClientId: string;
+    razorpayKeyId: string;
+  } | null>(null);
 
-  const paypalClientId = (import.meta as any).env.VITE_PAYPAL_CLIENT_ID;
-  const razorpayKeyId = (import.meta as any).env.VITE_RAZORPAY_KEY_ID;
-  const isPaypalConfigured = !!paypalClientId && paypalClientId !== "";
+  const paypalClientId = import.meta.env.VITE_PAYPAL_CLIENT_ID || dynamicConfig?.paypalClientId;
+  const razorpayKeyId = import.meta.env.VITE_RAZORPAY_KEY_ID || dynamicConfig?.razorpayKeyId;
+  const isPaypalConfigured = !!paypalClientId && paypalClientId !== "" && paypalClientId !== "sb";
   const isRazorpayConfigured = !!razorpayKeyId && razorpayKeyId !== "";
 
+  const [isLoadingConfig, setIsLoadingConfig] = useState(true);
+
   useEffect(() => {
+    // Fetch dynamic config if needed
+    const fetchConfig = async () => {
+      try {
+        const res = await fetch("/api/config");
+        const data = await res.json();
+        setDynamicConfig(data);
+      } catch (err) {
+        console.error("Failed to fetch dynamic configuration:", err);
+      } finally {
+        setIsLoadingConfig(false);
+      }
+    };
+    fetchConfig();
+
     // Load Razorpay script
     const script = document.createElement("script");
     script.src = "https://checkout.razorpay.com/v1/checkout.js";
@@ -189,7 +209,12 @@ export default function Billing() {
                 </div>
                 
                 <div className="space-y-6">
-                  {(!isPaypalConfigured && !isRazorpayConfigured) && (
+                  {isLoadingConfig ? (
+                    <div className="flex items-center gap-3 p-4 bg-white/5 rounded-xl animate-pulse">
+                      <div className="w-4 h-4 rounded-full bg-cyan-500/20" />
+                      <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Synchronizing Neural Gateways...</span>
+                    </div>
+                  ) : (!isPaypalConfigured && !isRazorpayConfigured) && (
                     <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-start gap-3 mb-6">
                       <AlertCircle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
                       <div>
@@ -220,8 +245,9 @@ export default function Billing() {
                               style={{ layout: "horizontal", height: 35, color: "blue", shape: "rect", label: "pay" }}
                               createOrder={async () => {
                                 if (!isPaypalConfigured) {
-                                  handlePaymentError("NOT_CONFIGURED");
-                                  throw new Error("NOT_CONFIGURED");
+                                  const msg = "PAYPAL_CLIENT_ID_MISSING: Deployment detected no PayPal keys. Please configure VITE_PAYPAL_CLIENT_ID or PAYPAL_CLIENT_ID.";
+                                  handlePaymentError(msg);
+                                  throw new Error(msg);
                                 }
                                 try {
                                   const res = await fetch("/api/paypal/create-order", {
@@ -295,8 +321,9 @@ export default function Billing() {
                               style={{ layout: "horizontal", height: 35, color: "silver", shape: "rect", label: "pay" }}
                               createOrder={async () => {
                                 if (!isPaypalConfigured) {
-                                  handlePaymentError("NOT_CONFIGURED");
-                                  throw new Error("NOT_CONFIGURED");
+                                  const msg = "PAYPAL_CLIENT_ID_MISSING: Deployment detected no PayPal keys. Please configure VITE_PAYPAL_CLIENT_ID or PAYPAL_CLIENT_ID.";
+                                  handlePaymentError(msg);
+                                  throw new Error(msg);
                                 }
                                 try {
                                   const res = await fetch("/api/paypal/create-order", {

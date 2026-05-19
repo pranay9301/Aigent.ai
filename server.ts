@@ -32,12 +32,20 @@ app.get("/api/health", (req, res) => {
     timestamp: new Date().toISOString(),
     services: {
       gemini: process.env.GEMINI_API_KEY ? "healthy" : "disconnected",
-      paypal: paypalClient ? "healthy" : "idle",
+      paypal: paypalClient ? "healthy" : "disconnected",
       razorpay: process.env.RAZORPAY_KEY_ID ? "healthy" : "idle"
     },
     version: "1.2.0-neural"
   };
   res.json(healthStatus);
+});
+
+app.get("/api/config", (req, res) => {
+  res.json({
+    paypalClientId: process.env.PAYPAL_CLIENT_ID || "",
+    razorpayKeyId: process.env.RAZORPAY_KEY_ID || "",
+    isPaypalLive: process.env.PAYPAL_MODE === "live"
+  });
 });
 
 // AI Agent Orchestration Endpoint
