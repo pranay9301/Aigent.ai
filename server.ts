@@ -32,7 +32,7 @@ app.get("/api/health", (req, res) => {
     timestamp: new Date().toISOString(),
     services: {
       gemini: process.env.GEMINI_API_KEY ? "healthy" : "disconnected",
-      paypal: paypalClient ? "healthy" : "disconnected",
+      paypal: getPayPalClient() ? "healthy" : "disconnected",
       razorpay: process.env.RAZORPAY_KEY_ID ? "healthy" : "idle"
     },
     version: "1.2.0-neural"
@@ -152,27 +152,37 @@ app.post("/api/ai/build", async (req, res) => {
 
 // --- PayPal Neural Payment Infrastructure ---
 
-const configurePayPal = () => {
+let paypalClientInstance: any = null;
+
+const getPayPalClient = () => {
+  if (paypalClientInstance) return paypalClientInstance;
+
   const clientId = process.env.PAYPAL_CLIENT_ID;
   const clientSecret = process.env.PAYPAL_CLIENT_SECRET;
   
-  if (!clientId || !clientSecret) {
-    console.warn("PAYPAL_CREDENTIALS_MISSING: Payment system is in idle mode.");
+  if (!clientId || !clientSecret || clientId === "sb") {
+    console.warn("PAYPAL_CREDENTIALS_MISSING: Payment system is in idle mode. Please check PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET.");
     return null;
   }
 
-  const environment = process.env.PAYPAL_MODE === "live"
-    ? new paypal.core.LiveEnvironment(clientId, clientSecret)
-    : new paypal.core.SandboxEnvironment(clientId, clientSecret);
-    
-  return new paypal.core.PayPalHttpClient(environment);
+  try {
+    const environment = process.env.PAYPAL_MODE === "live"
+      ? new paypal.core.LiveEnvironment(clientId, clientSecret)
+      : new paypal.core.SandboxEnvironment(clientId, clientSecret);
+      
+    paypalClientInstance = new paypal.core.PayPalHttpClient(environment);
+    console.log(`PayPal initialized in ${process.env.PAYPAL_MODE || 'sandbox'} mode.`);
+    return paypalClientInstance;
+  } catch (err) {
+    console.error("PayPal Initialization Error:", err);
+    return null;
+  }
 };
-
-const paypalClient = configurePayPal();
 
 // Create PayPal Order
 app.post("/api/paypal/create-order", async (req, res) => {
-  if (!paypalClient) {
+  const client = getPayPalClient();
+  if (!client) {
     return res.status(503).json({ error: "PAYPAL_NOT_CONFIGURED" });
   }
 
@@ -192,7 +202,7 @@ app.post("/api/paypal/create-order", async (req, res) => {
   });
 
   try {
-    const order = await paypalClient.execute(request);
+    const order = await client.execute(request);
     res.json({ id: order.result.id });
   } catch (err: any) {
     console.error("PayPal Order Error:", err);
@@ -202,7 +212,8 @@ app.post("/api/paypal/create-order", async (req, res) => {
 
 // Capture PayPal Order
 app.post("/api/paypal/capture-order", async (req, res) => {
-  if (!paypalClient) {
+  const client = getPayPalClient();
+  if (!client) {
     return res.status(503).json({ error: "PAYPAL_NOT_CONFIGURED" });
   }
 
@@ -212,7 +223,7 @@ app.post("/api/paypal/capture-order", async (req, res) => {
   request.requestBody({});
 
   try {
-    const capture = await paypalClient.execute(request);
+    const capture = await client.execute(request);
     // In a real app, you would update the user's subscription status in Firestore here
     res.json({ status: capture.result.status, details: capture.result });
   } catch (err: any) {
