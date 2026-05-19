@@ -1,6 +1,5 @@
 import express from "express";
 import path from "path";
-import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
 import paypal from "@paypal/checkout-server-sdk";
@@ -28,15 +27,21 @@ const ai = new GoogleGenAI({
 // API routes go here FIRST
 app.get("/api/health", (req, res) => {
   try {
+    const paypalId = process.env.PAYPAL_CLIENT_ID || process.env.VITE_PAYPAL_CLIENT_ID || "";
     const healthStatus = {
       status: "ok",
       timestamp: new Date().toISOString(),
       services: {
         gemini: !!process.env.GEMINI_API_KEY ? "healthy" : "disconnected",
-        paypal: !!(process.env.PAYPAL_CLIENT_ID || process.env.VITE_PAYPAL_CLIENT_ID) ? "connected" : "disconnected",
-        razorpay: !!process.env.RAZORPAY_KEY_ID ? "healthy" : "idle"
+        paypal: !!paypalId ? "connected" : "disconnected",
+        rezorpay: !!process.env.RAZORPAY_KEY_ID ? "healthy" : "idle"
       },
-      version: "1.2.1-neural"
+      env: {
+        node: process.version,
+        mode: process.env.NODE_ENV,
+        has_paypal_secret: !!process.env.PAYPAL_CLIENT_SECRET
+      },
+      version: "1.2.2-neural"
     };
     res.json(healthStatus);
   } catch (err) {
@@ -224,10 +229,19 @@ app.post("/api/paypal/create-order", async (req, res) => {
 
   try {
     const order = await client.execute(request);
+    console.log(`PayPal Order Created: ${order.result.id}`);
     res.json({ id: order.result.id });
   } catch (err: any) {
-    console.error("PayPal Order Error:", err);
-    res.status(500).json({ error: err.message });
+    console.error("PayPal Order Execution Error:", {
+      message: err.message,
+      statusCode: err.statusCode,
+      details: err.result || err.details
+    });
+    res.status(500).json({ 
+      error: "PAYMENT_EXECUTION_FAILURE", 
+      message: err.message,
+      code: err.statusCode
+    });
   }
 });
 
@@ -300,11 +314,17 @@ export default app;
 // Vite middleware for development
 async function setupVite() {
   if (process.env.NODE_ENV !== "production") {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa",
-    });
-    app.use(vite.middlewares);
+    try {
+      const { createServer: createViteServer } = await import("vite");
+      const vite = await createViteServer({
+        server: { middlewareMode: true },
+        appType: "spa",
+      });
+      app.use(vite.middlewares);
+      console.log("Neural Optimization: Vite Dev Middleware Mounted");
+    } catch (e) {
+      console.warn("Vite Dev Server failed to load, falling back to static (Non-critical in production)");
+    }
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
