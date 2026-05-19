@@ -47,6 +47,11 @@ export default function AuthPage() {
       await syncUser(user);
       navigate("/dashboard");
     } catch (err: any) {
+      console.error("Auth Error (Email/Password):", err);
+      if (err.code === "auth/operation-not-allowed") {
+        console.info("Debugging Info: Project ID:", auth.app.options.projectId);
+        console.info("Action Required: Enable Email/Password in Firebase Console -> Authentication -> Sign-in method");
+      }
       setError(err.message);
     }
   };
@@ -57,6 +62,7 @@ export default function AuthPage() {
       await syncUser(res.user);
       navigate("/dashboard");
     } catch (err: any) {
+      console.error("Auth Error (Social):", err);
       setError(err.message);
     }
   };
