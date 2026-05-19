@@ -57,7 +57,8 @@ export default function Billing() {
 
   const handlePaymentError = (err: any) => {
     console.error("Neural Payment Error:", err);
-    alert("TRANSACTION_FAILED: The neural payment gateway is currently in restricted mode. Please ensure your API keys are configured in the System Settings Hub.");
+    const message = typeof err === 'string' ? err : err.message || "Unknown Error";
+    alert(`PAYMENT_INITIALIZATION_ERROR: ${message}\n\nPlease verify that your Gateway keys are active in the System Settings Hub.`);
   };
 
   const handleRazorpayPayment = async (amount: string, planName: string) => {
@@ -130,8 +131,8 @@ export default function Billing() {
       >
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
           <div>
-            <h1 className="text-3xl font-bold mb-2 tracking-tight text-slate-900 dark:text-white uppercase">SUBSCRIPTION HUB</h1>
-            <p className="text-slate-500 dark:text-slate-400 text-sm font-medium uppercase tracking-wide leading-relaxed">Manage your neural workforce assets and billing.</p>
+            <h1 className="text-3xl font-bold mb-2 tracking-tight text-slate-950 dark:text-white uppercase">SUBSCRIPTION HUB</h1>
+            <p className="text-slate-600 dark:text-slate-400 text-sm font-medium uppercase tracking-wide leading-relaxed">Manage your neural workforce assets and billing.</p>
           </div>
           <div className="flex items-center gap-2 px-4 py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-full">
             <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
@@ -170,11 +171,11 @@ export default function Billing() {
                 <div className="relative z-10">
                   <div className="flex justify-between items-start mb-8">
                     <div>
-                      <h2 className="text-2xl font-bold text-slate-900 dark:text-white uppercase mb-1">Aigent Enterprise</h2>
-                      <p className="text-slate-500 dark:text-slate-400 text-xs font-medium">Billed annually • Next renewal: May 01, 2027</p>
+                      <h2 className="text-2xl font-bold text-slate-950 dark:text-white uppercase mb-1">Aigent Enterprise</h2>
+                      <p className="text-slate-600 dark:text-slate-400 text-xs font-medium">Billed annually • Next renewal: May 01, 2027</p>
                     </div>
                     <div className="text-right">
-                      <div className="text-3xl font-bold text-slate-900 dark:text-white">$299<span className="text-sm font-normal text-slate-500 tracking-normal">/mo</span></div>
+                      <div className="text-3xl font-bold text-slate-950 dark:text-white">$299<span className="text-sm font-normal text-slate-500 tracking-normal">/mo</span></div>
                     </div>
                   </div>
 
@@ -182,18 +183,18 @@ export default function Billing() {
                     {usageStats.map((stat, i) => (
                       <div key={i} className="p-4 rounded-2xl bg-black/5 dark:bg-slate-800/50 border border-black/5 dark:border-white/5">
                         <div className="flex items-center justify-between mb-2">
-                          <span className="text-[10px] font-bold text-slate-500 dark:text-slate-500 uppercase tracking-wider">{stat.label}</span>
-                          <span className={cn("font-mono text-sm font-bold", stat.color)}>{stat.value}</span>
+                          <span className="text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">{stat.label}</span>
+                          <span className={cn("font-mono text-sm font-bold", stat.color.replace('text-cyan-400', 'text-cyan-600 dark:text-cyan-400'))}>{stat.value}</span>
                         </div>
                         {stat.percent > 0 && (
-                          <div className="h-1.5 w-full bg-black/5 dark:bg-white/5 rounded-full overflow-hidden">
+                          <div className="h-1.5 w-full bg-black/10 dark:bg-white/10 rounded-full overflow-hidden">
                             <div 
-                              className={cn("h-full transition-all duration-1000", stat.color.replace('text', 'bg'))} 
+                              className={cn("h-full transition-all duration-1000 shadow-[0_0_8px_rgba(6,182,212,0.3)]", stat.color.replace('text', 'bg'))} 
                               style={{ width: `${stat.percent}%` }} 
                             />
                           </div>
                         )}
-                        <span className="text-[9px] text-slate-500 dark:text-slate-600 mt-2 block uppercase tracking-wide font-medium">Limit: {stat.limit}</span>
+                        <span className="text-[9px] text-slate-500 dark:text-slate-500 mt-2 block uppercase tracking-wide font-bold">Limit: {stat.limit}</span>
                       </div>
                     ))}
                   </div>
@@ -203,7 +204,7 @@ export default function Billing() {
               {/* Payment Methods */}
               <div className="p-8 rounded-[2rem] border border-black/10 dark:border-white/5 bg-white dark:bg-slate-900 shadow-sm">
                 <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+                  <h3 className="text-sm font-bold text-slate-950 dark:text-white uppercase tracking-wider flex items-center gap-2">
                     <ExternalLink className="w-4 h-4 text-cyan-600 dark:text-cyan-400" /> Neural Payment Gateway
                   </h3>
                 </div>
@@ -231,15 +232,15 @@ export default function Billing() {
                     <div className="p-6 rounded-2xl bg-black/[0.02] dark:bg-white/[0.02] border border-black/5 dark:border-white/5 hover:border-cyan-500/30 transition-all">
                       <div className="flex justify-between items-center mb-6">
                         <div>
-                          <span className="text-xs font-bold text-slate-800 dark:text-white uppercase tracking-wider block mb-1">Scale Tier</span>
-                          <span className="text-[10px] text-slate-500 dark:text-slate-600 uppercase font-bold tracking-tight">Recommended for solo founders</span>
+                          <span className="text-xs font-bold text-slate-950 dark:text-white uppercase tracking-wider block mb-1">Scale Tier</span>
+                          <span className="text-[10px] text-slate-600 dark:text-slate-400 uppercase font-bold tracking-tight">Recommended for solo founders</span>
                         </div>
-                        <span className="text-sm font-bold text-cyan-600 dark:text-cyan-400 italic">$69.00/mo</span>
+                        <span className="text-sm font-bold text-cyan-700 dark:text-cyan-400">$69.00/mo</span>
                       </div>
                       
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <label className="text-[10px] font-bold text-slate-400 dark:text-slate-600 uppercase tracking-wider block px-1">Global Gateway</label>
+                          <label className="text-[10px] font-bold text-slate-500 dark:text-slate-500 uppercase tracking-wider block px-1">Global Gateway</label>
                           <PayPalScriptProvider options={paypalOptions}>
                             <PayPalButtons 
                               style={{ layout: "horizontal", height: 35, color: "blue", shape: "rect", label: "pay" }}
@@ -290,13 +291,13 @@ export default function Billing() {
                         </div>
 
                         <div className="space-y-2">
-                          <label className="text-[8px] font-black text-slate-600 uppercase tracking-widest block px-1">Alternative Node</label>
+                          <label className="text-[10px] font-bold text-slate-500 dark:text-slate-500 uppercase tracking-wider block px-1">Alternative Node</label>
                           <button 
                             onClick={() => handleRazorpayPayment("69.00", "Scale")}
                             disabled={isProcessing}
-                            className="w-full h-[35px] bg-[#3395ff] hover:bg-[#2087f1] text-white flex items-center justify-center gap-2 rounded-lg transition-all group overflow-hidden relative"
+                            className="w-full h-[35px] bg-[#3395ff] hover:bg-[#2087f1] text-white flex items-center justify-center gap-2 rounded-lg transition-all group overflow-hidden relative shadow-sm"
                           >
-                            <span className="text-[10px] font-black uppercase tracking-widest z-10">Pay with Razorpay</span>
+                            <span className="text-[10px] font-bold uppercase tracking-widest z-10">Pay with Razorpay</span>
                             <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform" />
                           </button>
                         </div>
@@ -304,18 +305,18 @@ export default function Billing() {
                     </div>
 
                     {/* Enterprise Tier Button */}
-                    <div className="p-6 rounded-2xl bg-white/5 border border-white/5 hover:border-purple-500/30 transition-all">
+                    <div className="p-6 rounded-2xl bg-black/[0.02] dark:bg-white/[0.02] border border-black/5 dark:border-white/5 hover:border-purple-500/30 transition-all">
                       <div className="flex justify-between items-center mb-6">
                         <div>
-                          <span className="text-[10px] font-black text-white uppercase tracking-widest block mb-1">Upgrade to ENTERPRISE Tier</span>
-                          <span className="text-[8px] text-slate-500 uppercase font-mono tracking-tighter">Full workforce integration</span>
+                          <span className="text-xs font-bold text-slate-950 dark:text-white uppercase tracking-wider block mb-1">Enterprise Tier</span>
+                          <span className="text-[10px] text-slate-600 dark:text-slate-400 uppercase font-bold tracking-tight">Full workforce integration</span>
                         </div>
-                        <span className="text-xs font-black text-purple-400 italic">$299.00/mo</span>
+                        <span className="text-sm font-bold text-purple-700 dark:text-purple-400">$299.00/mo</span>
                       </div>
                       
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <label className="text-[8px] font-black text-slate-600 uppercase tracking-widest block px-1">Global Gateway</label>
+                          <label className="text-[10px] font-bold text-slate-500 dark:text-slate-500 uppercase tracking-wider block px-1">Global Gateway</label>
                           <PayPalScriptProvider options={paypalOptions}>
                             <PayPalButtons 
                               style={{ layout: "horizontal", height: 35, color: "silver", shape: "rect", label: "pay" }}
@@ -366,13 +367,13 @@ export default function Billing() {
                         </div>
 
                         <div className="space-y-2">
-                          <label className="text-[8px] font-black text-slate-600 uppercase tracking-widest block px-1">Alternative Node</label>
+                          <label className="text-[10px] font-bold text-slate-500 dark:text-slate-500 uppercase tracking-wider block px-1">Alternative Node</label>
                           <button 
                             onClick={() => handleRazorpayPayment("299.00", "Enterprise")}
                             disabled={isProcessing}
-                            className="w-full h-[35px] bg-[#3395ff] hover:bg-[#2087f1] text-white flex items-center justify-center gap-2 rounded-lg transition-all group overflow-hidden relative"
+                            className="w-full h-[35px] bg-[#3395ff] hover:bg-[#2087f1] text-white flex items-center justify-center gap-2 rounded-lg transition-all group overflow-hidden relative shadow-sm"
                           >
-                            <span className="text-[10px] font-black uppercase tracking-widest z-10">Pay with Razorpay</span>
+                            <span className="text-[10px] font-bold uppercase tracking-widest z-10">Pay with Razorpay</span>
                             <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform" />
                           </button>
                         </div>
@@ -385,52 +386,52 @@ export default function Billing() {
 
             {/* Sidebar Stats */}
             <div className="space-y-6">
-              <div className="p-8 rounded-[2rem] border border-cyan-500/20 bg-cyan-500/5">
-                <Shield className="w-8 h-8 text-cyan-400 mb-6" />
-                <h4 className="text-lg font-black italic text-white uppercase mb-2">Neural Security</h4>
-                <p className="text-slate-400 text-xs leading-relaxed mb-6 italic">Your subscription includes enterprise-grade neural isolation and end-to-end sandbox shielding.</p>
+              <div className="p-8 rounded-[2rem] border border-cyan-500/20 bg-cyan-500/5 shadow-sm">
+                <Shield className="w-8 h-8 text-cyan-600 dark:text-cyan-400 mb-6" />
+                <h4 className="text-lg font-bold text-slate-950 dark:text-white uppercase mb-2">Neural Security</h4>
+                <p className="text-slate-600 dark:text-slate-400 text-xs leading-relaxed mb-6">Your subscription includes enterprise-grade neural isolation and end-to-end sandbox shielding.</p>
                 <div className="space-y-3">
                   {["SOC2 Type II", "Neural Sandboxing", "IP Protection"].map((f, i) => (
-                    <div key={i} className="flex items-center gap-2 text-[10px] font-black text-slate-300 uppercase tracking-widest leading-none">
-                      <div className="w-1 h-1 rounded-full bg-cyan-400" /> {f}
+                    <div key={i} className="flex items-center gap-2 text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider leading-none">
+                      <div className="w-1.5 h-1.5 rounded-full bg-cyan-500" /> {f}
                     </div>
                   ))}
                 </div>
               </div>
 
-              <div className="p-8 rounded-[2rem] border border-white/5 bg-white/[0.02]">
-                <AlertCircle className="w-8 h-8 text-amber-400 mb-6" />
-                <h4 className="text-lg font-black italic text-white uppercase mb-2">Resource Alert</h4>
-                <p className="text-slate-400 text-xs leading-relaxed mb-6 italic">Neural token usage has reached 84%. Consider scaling your workforce limits to avoid latency.</p>
-                <button className="w-full py-4 bg-white/5 hover:bg-white/10 text-white text-[10px] font-black rounded-xl uppercase tracking-widest transition-all">Scale Resources</button>
+              <div className="p-8 rounded-[2rem] border border-black/10 dark:border-white/5 bg-white dark:bg-slate-900 shadow-sm">
+                <AlertCircle className="w-8 h-8 text-amber-600 dark:text-amber-400 mb-6" />
+                <h4 className="text-lg font-bold text-slate-950 dark:text-white uppercase mb-2">Resource Alert</h4>
+                <p className="text-slate-600 dark:text-slate-400 text-xs leading-relaxed mb-6">Neural token usage has reached 84%. Consider scaling your workforce limits to avoid latency.</p>
+                <button className="w-full py-4 bg-slate-900 dark:bg-white/5 hover:bg-slate-800 dark:hover:bg-white/10 text-white text-[10px] font-bold rounded-xl uppercase tracking-widest transition-all shadow-md">Scale Resources</button>
               </div>
             </div>
           </div>
         ) : (
-          <div className="glass-panel rounded-[2rem] overflow-hidden border border-white/5">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl overflow-hidden border border-black/10 dark:border-white/5 shadow-sm">
             <table className="w-full text-left">
               <thead>
-                <tr className="border-b border-white/5 bg-white/[0.02]">
-                  <th className="px-8 py-6 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Invoice ID</th>
-                  <th className="px-8 py-6 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Date</th>
-                  <th className="px-8 py-6 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Amount</th>
-                  <th className="px-8 py-6 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Status</th>
-                  <th className="px-8 py-6 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] text-right">Action</th>
+                <tr className="border-b border-black/10 dark:border-white/5 bg-slate-50 dark:bg-white/[0.02]">
+                  <th className="px-8 py-6 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Invoice ID</th>
+                  <th className="px-8 py-6 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Date</th>
+                  <th className="px-8 py-6 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Amount</th>
+                  <th className="px-8 py-6 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Status</th>
+                  <th className="px-8 py-6 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-right">Action</th>
                 </tr>
               </thead>
               <tbody>
                 {invoices.map((inv, i) => (
-                  <tr key={i} className="border-b border-white/5 hover:bg-white/[0.03] transition-colors group">
-                    <td className="px-8 py-6 font-mono text-xs font-bold text-slate-300">{inv.id}</td>
-                    <td className="px-8 py-6 text-sm font-medium text-slate-400">{inv.date}</td>
-                    <td className="px-8 py-6 text-sm font-black text-white italic">{inv.amount}</td>
+                  <tr key={i} className="border-b border-black/5 dark:border-white/5 hover:bg-slate-50 dark:hover:bg-white/[0.03] transition-colors group">
+                    <td className="px-8 py-6 font-mono text-xs font-bold text-slate-700 dark:text-slate-300">{inv.id}</td>
+                    <td className="px-8 py-6 text-sm font-medium text-slate-500 dark:text-slate-400">{inv.date}</td>
+                    <td className="px-8 py-6 text-sm font-bold text-slate-900 dark:text-white">{inv.amount}</td>
                     <td className="px-8 py-6">
-                      <span className="px-3 py-1 bg-emerald-500/10 text-emerald-400 text-[10px] font-black rounded-full uppercase tracking-widest">
+                      <span className="px-3 py-1 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold rounded-full uppercase tracking-widest">
                         {inv.status}
                       </span>
                     </td>
                     <td className="px-8 py-6 text-right">
-                      <button className="p-2 text-slate-500 hover:text-cyan-400 transition-colors">
+                      <button className="p-2 text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors">
                         <Download className="w-4 h-4" />
                       </button>
                     </td>

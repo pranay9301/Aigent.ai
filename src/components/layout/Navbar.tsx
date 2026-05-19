@@ -22,8 +22,8 @@ export default function Navbar({ user }: { user: any }) {
           <div className="w-8 h-8 bg-gradient-to-br from-cyan-400 to-blue-600 rounded-lg flex items-center justify-center shadow-lg shadow-cyan-500/20 group-hover:rotate-6 transition-transform">
             <span className="text-white font-bold text-xl leading-none">A</span>
           </div>
-          <span className="font-semibold text-xl tracking-tight text-slate-900 dark:text-white italic">
-            Aigent<span className="text-cyan-400">.ai</span>
+          <span className="font-bold text-xl tracking-tight text-slate-950 dark:text-white">
+            Aigent<span className="text-cyan-600 dark:text-cyan-400">.ai</span>
           </span>
         </Link>
 

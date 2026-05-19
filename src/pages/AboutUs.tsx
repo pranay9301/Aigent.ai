@@ -18,14 +18,14 @@ export default function AboutUs() {
               <div className="p-2 bg-purple-500/10 rounded-lg border border-purple-500/20">
                 <Rocket className="w-5 h-5 text-purple-600 dark:text-purple-400" />
               </div>
-              <span className="text-[10px] font-black tracking-[0.2em] text-purple-600 dark:text-purple-400 uppercase italic">Neural_Evolution</span>
-            </div>
-            <h1 className="text-7xl font-black italic tracking-tighter leading-[0.9] uppercase">
-              The Future of <span className="text-cyan-600 dark:text-cyan-400">Collaborative</span> <br />Neural Dev.
-            </h1>
-            <p className="text-lg text-slate-500 dark:text-slate-400 font-black italic leading-relaxed uppercase tracking-tight opacity-90">
-              Aigent.ai is not just an IDE. It's a decentralized neural workforce designed to orchestrate the next generation of software architecture.
-            </p>
+            <span className="text-[11px] font-bold tracking-wider text-purple-700 dark:text-purple-400 uppercase">Neural_Evolution</span>
+          </div>
+          <h1 className="text-6xl font-bold tracking-tight leading-[1.1] uppercase transition-colors">
+            The Future of <span className="text-cyan-700 dark:text-cyan-400">Collaborative</span> <br />Neural Dev.
+          </h1>
+          <p className="text-lg text-slate-600 dark:text-slate-400 font-bold leading-relaxed uppercase tracking-tight opacity-90 transition-colors">
+            Aigent.ai is not just an IDE. It's a decentralized neural workforce designed to orchestrate the next generation of software architecture.
+          </p>
           </motion.div>
           <motion.div 
             initial={{ opacity: 0, scale: 0.8 }}
@@ -39,9 +39,9 @@ export default function AboutUs() {
               </div>
             </div>
             {/* Floating Stats */}
-            <div className="absolute -bottom-8 -left-8 p-8 rounded-[2.5rem] bg-white dark:bg-black border border-black/5 dark:border-white/10 shadow-3xl">
-              <p className="text-4xl font-black italic text-slate-900 dark:text-white">14.2M</p>
-              <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-2 italic px-1">Tokens_Processed</p>
+            <div className="absolute -bottom-8 -left-8 p-8 rounded-[2.5rem] bg-white dark:bg-slate-900 border border-black/10 dark:border-white/10 shadow-xl transition-colors">
+              <p className="text-4xl font-bold text-slate-950 dark:text-white">14.2M</p>
+              <p className="text-[11px] font-bold text-slate-500 dark:text-slate-500 uppercase tracking-widest mt-2 px-1 transition-colors">Tokens_Processed</p>
             </div>
           </motion.div>
         </div>
@@ -61,8 +61,8 @@ export default function AboutUs() {
               className={cn("p-12 rounded-[3.5rem] bg-white dark:bg-white/[0.01] border border-black/5 dark:border-white/5 hover:bg-black/5 dark:hover:bg-white/[0.03] transition-all group", item.bg)}
             >
               <item.icon className={cn("w-12 h-12 mb-8 group-hover:scale-110 transition-transform", item.color)} />
-              <h3 className="text-2xl font-black italic text-slate-900 dark:text-white mb-4 uppercase tracking-tighter">{item.title}</h3>
-              <p className="text-slate-500 dark:text-slate-400 text-sm leading-relaxed uppercase tracking-tighter opacity-80">{item.desc}</p>
+              <h3 className="text-2xl font-bold text-slate-950 dark:text-white mb-4 uppercase tracking-tight">{item.title}</h3>
+              <p className="text-slate-600 dark:text-slate-400 text-sm leading-relaxed uppercase tracking-tight opacity-80 transition-colors">{item.desc}</p>
             </motion.div>
           ))}
         </div>
@@ -70,8 +70,8 @@ export default function AboutUs() {
         {/* The Team (Neural Agents) */}
         <div className="text-center space-y-20">
           <div className="space-y-6">
-            <h2 className="text-5xl font-black italic text-slate-900 dark:text-white uppercase tracking-tighter leading-none">The Neural Collective</h2>
-            <p className="text-slate-500 dark:text-slate-500 font-black italic uppercase tracking-widest text-xs opacity-70">Our team is a hybrid of human insight and architectural neural agents operating at thought-speed.</p>
+            <h2 className="text-5xl font-bold text-slate-950 dark:text-white uppercase tracking-tight leading-none transition-colors">The Neural Collective</h2>
+            <p className="text-slate-600 dark:text-slate-500 font-bold uppercase tracking-widest text-xs opacity-70 transition-colors">Our team is a hybrid of human insight and architectural neural agents operating at thought-speed.</p>
           </div>
           
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 px-1">
@@ -80,8 +80,8 @@ export default function AboutUs() {
                 <div className="w-16 h-16 rounded-3xl bg-white dark:bg-white/5 mx-auto flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform border border-black/5 dark:border-white/5">
                   <Zap className="w-6 h-6 text-slate-300 dark:text-white/20 group-hover:text-cyan-500 transition-colors" />
                 </div>
-                <p className="text-[10px] font-black text-slate-900 dark:text-white italic uppercase tracking-[0.2em]">{name}</p>
-                <div className="px-4 py-1.5 bg-blue-500/10 text-blue-600 dark:text-blue-400 text-[8px] font-black rounded-full inline-block uppercase tracking-widest italic border border-blue-500/10">Active_Session</div>
+                <p className="text-[11px] font-bold text-slate-950 dark:text-white uppercase tracking-widest">{name}</p>
+                <div className="px-4 py-1.5 bg-blue-500/10 text-blue-700 dark:text-blue-400 text-[9px] font-bold rounded-full inline-block uppercase tracking-widest border border-blue-500/10">Active_Session</div>
               </div>
             ))}
           </div>

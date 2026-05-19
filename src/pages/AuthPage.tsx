@@ -80,8 +80,8 @@ export default function AuthPage() {
           <div className="inline-flex p-4 rounded-2xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 mb-6 animate-pulse-cyan">
             <Sparkles className="w-8 h-8" />
           </div>
-          <h2 className="text-4xl font-black italic text-slate-900 dark:text-white tracking-tighter">AIGENT CORE</h2>
-          <p className="text-slate-400 dark:text-slate-500 text-xs font-bold uppercase tracking-widest mt-2 font-mono">
+          <h2 className="text-4xl font-bold text-slate-950 dark:text-white uppercase tracking-tight">AIGENT CORE</h2>
+          <p className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider mt-2 font-mono">
             {isLogin ? "INITIALIZE OPERATOR SESSION" : "ENROLL NEW INTELLIGENCE"}
           </p>
         </div>
@@ -111,7 +111,7 @@ export default function AuthPage() {
               required
             />
           </div>
-          <button className="w-full py-4 bg-slate-950 dark:bg-cyan-500 hover:bg-cyan-400 text-white dark:text-slate-950 font-black text-sm rounded-xl transition-all active:scale-95 shadow-xl shadow-cyan-500/20 uppercase tracking-widest">
+          <button className="w-full py-4 bg-slate-950 dark:bg-cyan-500 hover:bg-slate-900 dark:hover:bg-cyan-400 text-white dark:text-slate-950 font-bold text-sm rounded-xl transition-all active:scale-95 shadow-lg shadow-cyan-500/10 uppercase tracking-widest">
             {isLogin ? "BOOT SEQUENCE" : "GENERATE IDENTITY"}
           </button>
         </form>
@@ -131,9 +131,9 @@ export default function AuthPage() {
           </button>
         </div>
 
-        <p className="mt-10 text-center text-[10px] text-slate-400 dark:text-slate-600 font-bold tracking-widest uppercase">
+        <p className="mt-10 text-center text-[10px] text-slate-500 dark:text-slate-600 font-bold tracking-wider uppercase">
           {isLogin ? "Missing access creds?" : "Intelligence already synced?"}{" "}
-          <button onClick={() => setIsLogin(!isLogin)} className="text-cyan-600 dark:text-cyan-400 font-black hover:underline cursor-pointer">
+          <button onClick={() => setIsLogin(!isLogin)} className="text-cyan-700 dark:text-cyan-500 font-bold hover:underline cursor-pointer">
             {isLogin ? "PROVISION_HERE" : "INITIATE_LOGIN"}
           </button>
         </p>
