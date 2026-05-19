@@ -1,5 +1,6 @@
 import { motion } from "motion/react";
 import { Mail, Phone, MapPin, MessageSquare, Send } from "lucide-react";
+import Footer from "../components/layout/Footer";
 
 export default function ContactUs() {
   return (
@@ -96,6 +97,7 @@ export default function ContactUs() {
           </div>
         </div>
       </div>
+      <Footer />
     </div>
   );
 }

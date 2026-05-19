@@ -1,5 +1,6 @@
 import { motion } from "motion/react";
 import { Eye, ShieldCheck, Lock, Database } from "lucide-react";
+import Footer from "../components/layout/Footer";
 
 export default function PrivacyPolicy() {
   return (
@@ -77,6 +78,7 @@ export default function PrivacyPolicy() {
           <p className="text-sm font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest italic">privacy@aigent.ai</p>
         </motion.div>
       </div>
+      <Footer />
     </div>
   );
 }

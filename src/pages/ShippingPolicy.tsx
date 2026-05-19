@@ -1,5 +1,6 @@
 import { motion } from "motion/react";
 import { Truck, Zap, Globe, Package } from "lucide-react";
+import Footer from "../components/layout/Footer";
 
 export default function ShippingPolicy() {
   return (
@@ -68,6 +69,7 @@ export default function ShippingPolicy() {
           <p className="text-sm font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest italic">operations@aigent.ai</p>
         </motion.div>
       </div>
+      <Footer />
     </div>
   );
 }

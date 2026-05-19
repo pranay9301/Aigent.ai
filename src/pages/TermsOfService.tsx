@@ -1,5 +1,6 @@
 import { motion } from "motion/react";
 import { Shield, FileText, Globe, Clock } from "lucide-react";
+import Footer from "../components/layout/Footer";
 
 export default function TermsOfService() {
   return (
@@ -77,6 +78,7 @@ export default function TermsOfService() {
           <p className="text-sm font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest italic">legal@aigent.ai</p>
         </motion.div>
       </div>
+      <Footer />
     </div>
   );
 }

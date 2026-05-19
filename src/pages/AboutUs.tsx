@@ -1,6 +1,7 @@
 import { motion } from "motion/react";
 import { Rocket, Target, Users, Zap, Code, Shield } from "lucide-react";
 import { cn } from "../lib/utils";
+import Footer from "../components/layout/Footer";
 
 export default function AboutUs() {
   return (
@@ -86,6 +87,7 @@ export default function AboutUs() {
           </div>
         </div>
       </div>
+      <Footer />
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { motion } from "motion/react";
 import { RefreshCcw, AlertTriangle, CheckCircle2, CreditCard } from "lucide-react";
+import Footer from "../components/layout/Footer";
 
 export default function RefundPolicy() {
   return (
@@ -68,6 +69,7 @@ export default function RefundPolicy() {
           <p className="text-sm font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest italic">billing@aigent.ai</p>
         </motion.div>
       </div>
+      <Footer />
     </div>
   );
 }
