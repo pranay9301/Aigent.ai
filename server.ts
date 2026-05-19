@@ -1,5 +1,6 @@
 import express from "express";
 import path from "path";
+import { Type } from "@google/genai";
 import dotenv from "dotenv";
 import crypto from "crypto";
 import { pruneContext, cache } from "./src/lib/neural-optim";
@@ -77,10 +78,12 @@ app.get("/api/config", (req, res) => {
       paypalClientId: paypalId,
       razorpayKeyId: razorpayId,
       isPaypalLive: process.env.PAYPAL_MODE === "live",
+      hasPaypalSecret: !!process.env.PAYPAL_CLIENT_SECRET,
       serverMode: process.env.NODE_ENV || "development"
     });
   } catch (error) {
-    res.status(500).json({ error: "CONFIG_ERROR" });
+    console.error("Config fetch error:", error);
+    res.status(500).json({ error: "CONFIG_SYNC_ERROR" });
   }
 });
 
@@ -211,47 +214,50 @@ const getPayPalClient = async () => {
 
   try {
     const pp = await getPayPalSDK();
-    const environment = process.env.PAYPAL_MODE === "live"
+    const mode = (process.env.PAYPAL_MODE || "sandbox").toLowerCase();
+    const environment = mode === "live"
       ? new pp.core.LiveEnvironment(clientId, clientSecret)
       : new pp.core.SandboxEnvironment(clientId, clientSecret);
       
+    console.log(`Neural Infrastructure: PayPal initializing in ${mode} mode.`);
     paypalClientInstance = new pp.core.PayPalHttpClient(environment);
     return paypalClientInstance;
   } catch (err) {
-    console.error("PayPal Initialization Error:", err);
+    console.error("PayPal Infrastructure Critical Error:", err);
     return null;
   }
 };
 
 // Create PayPal Order
 app.post("/api/paypal/create-order", async (req, res) => {
-  const client = await getPayPalClient();
-  if (!client) {
-    return res.status(503).json({ error: "PAYPAL_NOT_CONFIGURED" });
-  }
-
-  const { amount, planName } = req.body;
-  const pp = await getPayPalSDK();
-
-  const request = new pp.orders.OrdersCreateRequest();
-  request.prefer("return=representation");
-  request.requestBody({
-    intent: "CAPTURE",
-    purchase_units: [{
-      amount: {
-        currency_code: "USD",
-        value: amount
-      },
-      description: `Aigent.ai - ${planName} Subscription`
-    }]
-  });
-
   try {
+    const client = await getPayPalClient();
+    if (!client) {
+      console.error("PayPal Order Error: Client Not Configured");
+      return res.status(503).json({ error: "PAYPAL_NOT_CONFIGURED" });
+    }
+
+    const { amount, planName } = req.body;
+    const pp = await getPayPalSDK();
+
+    const request = new pp.orders.OrdersCreateRequest();
+    request.prefer("return=representation");
+    request.requestBody({
+      intent: "CAPTURE",
+      purchase_units: [{
+        amount: {
+          currency_code: "USD",
+          value: amount
+        },
+        description: `Aigent.ai - ${planName} Subscription`
+      }]
+    });
+
     const order = await client.execute(request);
     console.log(`PayPal Order Created: ${order.result.id}`);
     res.json({ id: order.result.id });
   } catch (err: any) {
-    console.error("PayPal Order Execution Error:", {
+    console.error("PayPal Order Execution Failure:", {
       message: err.message,
       statusCode: err.statusCode,
       details: err.result || err.details
@@ -335,8 +341,6 @@ app.post("/api/razorpay/verify-payment", async (req, res) => {
   }
 });
 
-export default app;
-
 // Vite middleware for development
 async function setupVite() {
   if (process.env.NODE_ENV !== "production") {
@@ -359,12 +363,17 @@ async function setupVite() {
     });
   }
 
-  // Only listen if not running in a serverless environment
-  if (process.env.NODE_ENV !== "production") {
+  // Only listen if not on Vercel
+  if (!process.env.VERCEL) {
     app.listen(PORT, "0.0.0.0", () => {
       console.log(`Server running on http://localhost:${PORT}`);
     });
   }
 }
 
-setupVite();
+// Only bootstraps the dev/static server if NOT in a serverless environment (Vercel)
+if (!process.env.VERCEL) {
+  setupVite();
+}
+
+export default app;

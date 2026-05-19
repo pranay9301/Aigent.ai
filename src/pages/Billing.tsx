@@ -61,8 +61,27 @@ export default function Billing() {
 
   const handlePaymentError = (err: any) => {
     console.error("Neural Payment Error:", err);
-    const message = typeof err === 'string' ? err : err.message || "Unknown Error";
-    alert(`PAYMENT_INITIALIZATION_ERROR: ${message}\n\nPlease verify that your Gateway keys are active in the System Settings Hub.`);
+    let message = "Unknown Error";
+    
+    if (typeof err === 'string') {
+      message = err;
+    } else if (err?.message) {
+      message = err.message;
+    } else if (err?.error) {
+      message = err.error;
+    }
+
+    // Friendly mapping for common technical errors
+    const friendlyMessages: Record<string, string> = {
+      "PAYPAL_NOT_CONFIGURED": "The PayPal gateway is not fully configured on the server. Please check your credentials.",
+      "PAYMENT_EXECUTION_FAILURE": "Neural gateway rejected the transaction. This usually indicates invalid credentials.",
+      "CONFIG_SYNC_ERROR": "Failed to synchronize with the payment infrastructure.",
+      "API_ERROR": "The payment provider returned an API error. Please check your account status."
+    };
+
+    const finalMessage = friendlyMessages[message] || message;
+    
+    alert(`PAYMENT_ERROR: ${finalMessage}\n\nPlease verify your Gateway keys in the System Settings Hub.`);
   };
 
   const handleRazorpayPayment = async (amount: string, planName: string) => {
@@ -254,20 +273,23 @@ export default function Billing() {
                                   handlePaymentError(msg);
                                   throw new Error(msg);
                                 }
-                                try {
-                                  const res = await fetch("/api/paypal/create-order", {
-                                    method: "POST",
-                                    headers: { "Content-Type": "application/json" },
-                                    body: JSON.stringify({ amount: "69.00", planName: "Scale" })
-                                  });
-                                  if (!res.ok) throw new Error("API_ERROR");
-                                  const data = await res.json();
-                                  if (!data.id) throw new Error("INVALID_ORDER_ID");
-                                  return data.id;
-                                } catch (err) {
-                                  handlePaymentError(err);
-                                  throw err;
-                                }
+                                  try {
+                                    const res = await fetch("/api/paypal/create-order", {
+                                      method: "POST",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({ amount: "69.00", planName: "Scale" })
+                                    });
+                                    if (!res.ok) {
+                                      const errorData = await res.json().catch(() => ({ error: "NETWORK_ERROR" }));
+                                      throw new Error(errorData.message || errorData.error || "API_ERROR");
+                                    }
+                                    const data = await res.json();
+                                    if (!data.id) throw new Error("INVALID_ORDER_ID");
+                                    return data.id;
+                                  } catch (err: any) {
+                                    handlePaymentError(err);
+                                    throw err;
+                                  }
                               }}
                               onApprove={async (data) => {
                                 setIsProcessing(true);
@@ -336,11 +358,14 @@ export default function Billing() {
                                     headers: { "Content-Type": "application/json" },
                                     body: JSON.stringify({ amount: "299.00", planName: "Enterprise" })
                                   });
-                                  if (!res.ok) throw new Error("API_ERROR");
+                                  if (!res.ok) {
+                                    const errorData = await res.json().catch(() => ({ error: "NETWORK_ERROR" }));
+                                    throw new Error(errorData.message || errorData.error || "API_ERROR");
+                                  }
                                   const data = await res.json();
                                   if (!data.id) throw new Error("INVALID_ORDER_ID");
                                   return data.id;
-                                } catch (err) {
+                                } catch (err: any) {
                                   handlePaymentError(err);
                                   throw err;
                                 }
