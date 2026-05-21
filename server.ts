@@ -31,8 +31,12 @@ const getRazorpay = async () => {
   if (!Razorpay) {
     Razorpay = (await import("razorpay")).default;
   }
-  const key_id = process.env.RAZORPAY_KEY_ID || process.env.VITE_RAZORPAY_KEY_ID;
-  const key_secret = process.env.RAZORPAY_KEY_SECRET;
+  const key_id = process.env.RAZORPAY_KEY_ID
+    || process.env.VITE_RAZORPAY_KEY_ID
+    || "rzp_live_SpCXyw5DStKC5o";
+  const key_secret = process.env.RAZORPAY_KEY_SECRET
+    || process.env.VITE_RAZORPAY_KEY_SECRET
+    || "Q2Po6EULQ5qsziBNOV9i4C9f";
   if (!key_id || !key_secret) return null;
   return new Razorpay({ key_id, key_secret });
 };
@@ -54,7 +58,7 @@ app.get("/api/health", (req, res) => {
       services: {
         gemini: !!process.env.GEMINI_API_KEY ? "healthy" : "disconnected",
         paypal: !!paypalId ? "connected" : "disconnected",
-        rezorpay: !!process.env.RAZORPAY_KEY_ID ? "healthy" : "idle"
+        razorpay: !!(process.env.RAZORPAY_KEY_ID || "rzp_live_SpCXyw5DStKC5o") ? "healthy" : "idle"
       },
       env: {
         node: process.version,
@@ -77,7 +81,9 @@ app.get("/api/config", (req, res) => {
     const paypalSecret = process.env.PAYPAL_CLIENT_SECRET
       || process.env.VITE_PAYPAL_CLIENT_SECRET
       || "EHl6F59RBHFdAqYpb7aIQ01fFEGa0SR5vBoIOiBI3OmLCev3DVuAnNTKpkbiLhb2DQBI-8s7mX24c3ji";
-    const razorpayId = process.env.RAZORPAY_KEY_ID || process.env.VITE_RAZORPAY_KEY_ID || "";
+    const razorpayId = process.env.RAZORPAY_KEY_ID
+      || process.env.VITE_RAZORPAY_KEY_ID
+      || "rzp_live_SpCXyw5DStKC5o";
 
     res.json({
       paypalClientId: paypalId,
@@ -341,9 +347,13 @@ app.post("/api/razorpay/create-order", async (req, res) => {
   }
 
   try {
+    // Razorpay supports: USD, EUR, GBP, INR, SGD, AUD, CAD, etc.
+    const supportedCurrencies = ["USD", "INR", "EUR", "GBP", "SGD", "AUD", "CAD", "AED", "MYR", "NZD"];
+    const finalCurrency = supportedCurrencies.includes(currency.toUpperCase()) ? currency.toUpperCase() : "USD";
+
     const options = {
-      amount: Math.round(parseFloat(amount) * 100), // amount in the smallest currency unit
-      currency,
+      amount: Math.round(parseFloat(amount) * 100),
+      currency: finalCurrency,
       receipt: `receipt_${Date.now()}`,
     };
 
@@ -355,9 +365,40 @@ app.post("/api/razorpay/create-order", async (req, res) => {
   }
 });
 
+// Razorpay Webhook Endpoint
+app.post("/api/razorpay/webhook", (req, res) => {
+  const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET
+    || "JDLOOCTYMON01051993MONTY";
+
+  const signature = req.headers["x-razorpay-signature"];
+  const body = JSON.stringify(req.body);
+
+  const expectedSignature = crypto
+    .createHmac("sha256", webhookSecret)
+    .update(body)
+    .digest("hex");
+
+  if (signature === expectedSignature) {
+    const event = req.body.event;
+    console.log("Razorpay Webhook Event:", event);
+
+    if (event === "payment.captured") {
+      console.log("Payment captured:", req.body.payload?.payment?.entity?.id);
+    } else if (event === "payment.failed") {
+      console.log("Payment failed:", req.body.payload?.payment?.entity?.id);
+    }
+
+    res.json({ status: "ok" });
+  } else {
+    res.status(400).json({ error: "Invalid webhook signature" });
+  }
+});
+
 app.post("/api/razorpay/verify-payment", async (req, res) => {
   const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
-  const key_secret = process.env.RAZORPAY_KEY_SECRET;
+  const key_secret = process.env.RAZORPAY_KEY_SECRET
+    || process.env.VITE_RAZORPAY_KEY_SECRET
+    || "Q2Po6EULQ5qsziBNOV9i4C9f";
 
   if (!key_secret) {
     return res.status(401).json({ error: "RAZORPAY_SECRET_MISSING" });
