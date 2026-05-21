@@ -238,8 +238,8 @@ let paypalClientInstance: any = null;
 const getPayPalClient = async () => {
   if (paypalClientInstance) return paypalClientInstance;
 
-  const clientId = process.env.PAYPAL_CLIENT_ID || process.env.VITE_PAYPAL_CLIENT_ID;
-  const clientSecret = process.env.PAYPAL_CLIENT_SECRET || process.env.VITE_PAYPAL_CLIENT_SECRET;
+  const clientId = process.env.PAYPAL_CLIENT_ID || process.env.VITE_PAYPAL_CLIENT_ID || "AUgGGIucZj-6Ob_b2NyrZw9Uv7WwTaw80TPlgM8Xj-ElO6Snknk42NL2mJ7ofeG1wRAn8E-vFOQHhjWr";
+  const clientSecret = process.env.PAYPAL_CLIENT_SECRET || process.env.VITE_PAYPAL_CLIENT_SECRET || "EHl6F59RBHFdAqYpb7aIQ01fFEGa0SR5vBoIOiBI3OmLCev3DVuAnNTKpkbiLhb2DQBI-8s7mX24c3ji";
 
   if (!clientId || !clientSecret || clientId === "sb") {
     return null;

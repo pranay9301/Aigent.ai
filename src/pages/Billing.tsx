@@ -110,7 +110,8 @@ export default function Billing() {
       "PAYPAL_NOT_CONFIGURED": "The PayPal gateway is not fully configured on the server. Please check your credentials.",
       "PAYMENT_EXECUTION_FAILURE": "Neural gateway rejected the transaction. This usually indicates invalid credentials.",
       "CONFIG_SYNC_ERROR": "Failed to synchronize with the payment infrastructure.",
-      "API_ERROR": "The payment provider returned an API error. Please check your account status."
+      "API_ERROR": "The payment provider returned an API error. Please check your account status.",
+      "RAZORPAY_NOT_CONFIGURED": "Razorpay payment gateway is not configured. Please check your environment variables.",
     };
 
     const finalMessage = friendlyMessages[message] || message;
