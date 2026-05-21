@@ -14,6 +14,47 @@ import {
 import { orchestrateAgent } from "../lib/gemini";
 import { cn } from "../lib/utils";
 import { useTheme } from "../lib/ThemeContext";
+import Markdown from "react-markdown";
+
+function generatePreviewHTML(files: Record<string, string>): string {
+  const html = files["index.html"] || "";
+  const css = files["index.css"] || files["style.css"] || "";
+  const js = files["App.tsx"] || files["App.jsx"] || files["main.tsx"] || files["main.jsx"] || files["script.js"] || "";
+
+  const extractedCSS = css.replace(/@import\s+['"][^'"]*['"]\s*;?/g, "").replace(/import\s+.*$/gm, "");
+  const extractedJS = js
+    .replace(/import\s+.*$/gm, "")
+    .replace(/export\s+default\s+function\s+\w+/, "function App")
+    .replace(/export\s+function\s+(\w+)/g, "function $1")
+    .replace(/<(\w+)\s*\/>/g, "<$1></$1>");
+
+  if (html) return html;
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://cdn.tailwindcss.com"><\/script>
+  <style>${extractedCSS}</style>
+</head>
+<body>
+  <div id="root"></div>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"><\/script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"><\/script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"><\/script>
+  <script type="text/babel">
+    ${extractedJS}
+    try {
+      const root = ReactDOM.createRoot(document.getElementById('root'));
+      root.render(React.createElement(App || (() => React.createElement('div', {style:{padding:'2rem',fontFamily:'monospace'}}, 'Preview ready. Add an index.html for custom rendering.'))));
+    } catch(e) {
+      document.getElementById('root').innerHTML = '<pre style="color:red;padding:1rem">' + e.message + '</pre>';
+    }
+  <\/script>
+</body>
+</html>`;
+}
 
 export default function Workspace() {
   const { projectId } = useParams();
@@ -39,6 +80,7 @@ export default function Workspace() {
   ]);
   const [pendingApprovals, setPendingApprovals] = useState<{id: string, agent: string, action: string, cost?: string}[]>([]);
   const [rightPanelTab, setRightPanelTab] = useState<"chat" | "trace" | "approvals">("chat");
+  const [fileVersions, setFileVersions] = useState<Record<string, string[]>>({});
 
   const monoTheme = theme === 'light' ? 'light' : 'vs-dark';
 
@@ -73,6 +115,17 @@ export default function Workspace() {
   const handleSave = async () => {
     if (!projectId) return;
     try {
+      // Store previous versions before saving
+      setFileVersions(prev => {
+        const updated = { ...prev };
+        Object.entries(files).forEach(([path, content]) => {
+          const existing = updated[path] || [];
+          if (existing.length === 0 || existing[existing.length - 1] !== content) {
+            updated[path] = [...existing, content].slice(-5); // Keep last 5 versions
+          }
+        });
+        return updated;
+      });
       await updateDoc(doc(db, "projects", projectId), {
         files,
         updatedAt: new Date().toISOString(),
@@ -257,10 +310,18 @@ export default function Workspace() {
                   <span className="flex-1 text-left truncate">{path}</span>
                 </button>
                 <div className="absolute right-4 top-1/2 -translate-y-1/2 flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                  <button 
+                  <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      addNotification("ROLLBACK_INITIATED: Reverting neural state.");
+                      const versions = fileVersions[path];
+                      if (versions && versions.length > 0) {
+                        const previousVersion = versions[versions.length - 1];
+                        setFiles(prev => ({ ...prev, [path]: previousVersion }));
+                        setFileVersions(prev => ({ ...prev, [path]: versions.slice(0, -1) }));
+                        addNotification(`ROLLBACK_COMPLETE: ${path} reverted.`);
+                      } else {
+                        addNotification("ROLLBACK_FAILED: No previous version found.");
+                      }
                     }}
                     className="p-1 hover:bg-black/5 dark:hover:bg-white/10 rounded text-slate-400"
                     title="Neural Rollback"
@@ -352,27 +413,14 @@ export default function Workspace() {
         </div>
 
         {/* Preview Area */}
-        <div className={cn("flex-1 bg-black/[0.02] dark:bg-slate-900/50 border-l border-black/5 dark:border-white/10 relative overflow-hidden transition-colors", (viewMode === "preview" || viewMode === "split") ? "block" : "hidden")}>
-           <div className="absolute top-0 right-0 w-full h-full bg-[radial-gradient(circle_at_top_right,rgba(6,182,212,0.05),transparent)] pointer-events-none" />
-           <div className="h-full w-full flex items-center justify-center p-12">
-             <motion.div 
-               initial={{ opacity: 0, y: 20 }}
-               whileInView={{ opacity: 1, y: 0 }}
-               className="text-center p-10 bg-white/80 dark:bg-white/[0.02] backdrop-blur-xl border border-black/5 dark:border-white/10 rounded-3xl max-w-sm relative shadow-2xl transition-colors"
-             >
-                <div className="absolute -top-10 left-1/2 -translate-x-1/2 w-20 h-20 bg-cyan-500/20 blur-2xl rounded-full" />
-                <div className="w-16 h-16 bg-cyan-500/10 border border-cyan-500/20 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                  <Globe className="w-8 h-8 text-cyan-500" />
-                </div>
-                <h3 className="text-xl font-black italic text-slate-900 dark:text-white mb-2 uppercase">Neural Render</h3>
-                <p className="text-slate-500 dark:text-slate-400 text-xs font-medium italic mb-8 leading-relaxed">Aigent's autonomous workforce is parsing your neural codebase to spin up a safe, sandboxed environment.</p>
-                <button 
-                  onClick={handleDeploy}
-                  className="w-full py-4 bg-slate-900 dark:bg-cyan-500 hover:bg-cyan-500 dark:hover:bg-cyan-400 text-white dark:text-slate-950 text-[10px] font-black rounded-xl shadow-lg shadow-cyan-500/20 uppercase tracking-[0.2em] transition-all active:scale-95"
-                >
-                  INITIALIZE_REEL
-                </button>
-             </motion.div>
+        <div className={cn("flex-1 bg-white dark:bg-slate-950 border-l border-black/5 dark:border-white/10 relative overflow-hidden transition-colors", (viewMode === "preview" || viewMode === "split") ? "block" : "hidden")}>
+           <div className="h-full w-full">
+             <iframe
+               srcDoc={generatePreviewHTML(files)}
+               title="Live Preview"
+               sandbox="allow-scripts"
+               className="w-full h-full border-0 bg-white"
+             />
            </div>
         </div>
 
@@ -462,12 +510,12 @@ export default function Workspace() {
                     {messages.map((m, i) => (
                       <div key={i} className={cn("flex flex-col", m.role === "user" ? "items-end" : "items-start")}>
                         <div className={cn(
-                           "max-w-[90%] p-4 rounded-2xl text-[11px] leading-relaxed shadow-sm", 
-                           m.role === "user" 
-                            ? "bg-slate-900 dark:bg-white text-white dark:text-slate-950 font-bold" 
-                            : "bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5 text-slate-700 dark:text-slate-300 font-medium"
+                           "max-w-[90%] p-4 rounded-2xl text-[11px] leading-relaxed shadow-sm",
+                           m.role === "user"
+                            ? "bg-slate-900 dark:bg-white text-white dark:text-slate-950 font-bold"
+                            : "bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5 text-slate-700 dark:text-slate-300 font-medium [&_pre]:bg-slate-900 [&_pre]:dark:bg-slate-800 [&_pre]:text-cyan-300 [&_pre]:p-3 [&_pre]:rounded-lg [&_pre]:overflow-x-auto [&_pre]:my-2 [&_code]:font-mono [&_code]:text-[10px] [&_p]:mb-2 [&_p:last-child]:mb-0 [&_ul]:list-disc [&_ul]:pl-4 [&_ul]:mb-2 [&_ol]:list-decimal [&_ol]:pl-4 [&_ol]:mb-2 [&_h1]:text-sm [&_h1]:font-bold [&_h1]:mb-1 [&_h2]:text-xs [&_h2]:font-bold [&_h2]:mb-1 [&_h3]:text-[11px] [&_h3]:font-bold [&_h3]:mb-1"
                         )}>
-                          {m.text}
+                          {m.role === "assistant" ? <Markdown>{m.text}</Markdown> : m.text}
                         </div>
                         <span className="text-[10px] font-bold text-slate-500 dark:text-slate-500 uppercase tracking-wider">{m.role}</span>
                       </div>

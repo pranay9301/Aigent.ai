@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { useState } from "react";
 import { ThemeToggle } from "../ui/ThemeToggle";
 
-export default function Navbar({ user }: { user: any }) {
+export default function Navbar({ user, userRole }: { user: any; userRole?: string }) {
   const navigate = useNavigate();
   const [showDropdown, setShowDropdown] = useState(false);
 
@@ -38,9 +38,11 @@ export default function Navbar({ user }: { user: any }) {
             <Link to="/projects" className="font-medium text-slate-500 dark:text-slate-400 hover:text-cyan-500 dark:hover:text-white transition-colors flex items-center gap-2">
               <Folder className="w-4 h-4" /> <span className="hidden sm:inline">Projects</span>
             </Link>
-            <Link to="/admin" className="font-medium text-slate-500 dark:text-slate-400 hover:text-cyan-500 dark:hover:text-white transition-colors flex items-center gap-2">
-              <Crown className="w-4 h-4 text-amber-400" /> <span className="hidden sm:inline">Admin</span>
-            </Link>
+            {userRole === "admin" && (
+              <Link to="/admin" className="font-medium text-slate-500 dark:text-slate-400 hover:text-cyan-500 dark:hover:text-white transition-colors flex items-center gap-2">
+                <Crown className="w-4 h-4 text-amber-400" /> <span className="hidden sm:inline">Admin</span>
+              </Link>
+            )}
             
             <div className="relative">
               <button 
@@ -70,7 +72,7 @@ export default function Navbar({ user }: { user: any }) {
                         <ThemeToggle />
                       </div>
                       <button 
-                        onClick={() => alert("System Settings Hub: Accessing restricted neural parameters. [Coming Soon]")}
+                        onClick={() => navigate("/dashboard")}
                         className="w-full flex items-center gap-3 px-3 py-2 text-sm text-slate-700 dark:text-slate-300 hover:text-cyan-600 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 rounded-lg transition-all text-left"
                       >
                         <Settings className="w-4 h-4" /> System Settings

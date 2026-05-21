@@ -151,6 +151,20 @@ app.post("/api/ai/orchestrate", async (req, res) => {
   }
 });
 
+// Contact Form Endpoint
+app.post("/api/contact", async (req, res) => {
+  const { name, email, subject, message } = req.body;
+  if (!name || !email || !subject || !message) {
+    return res.status(400).json({ error: "All fields are required" });
+  }
+  try {
+    console.log("Contact Form Submission:", { name, email, subject, message, timestamp: new Date().toISOString() });
+    res.json({ status: "ok", message: "Message received" });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // App Building Endpoint (Complex)
 app.post("/api/ai/build", async (req, res) => {
   const { prompt } = req.body;
@@ -190,10 +204,22 @@ app.post("/api/ai/build", async (req, res) => {
 
     const plan = JSON.parse(planResponse.text);
 
-    // Stage 2: Parallel generation (simplified for now)
-    // In a real app we'd iterate and generate each file.
-    
-    res.json({ plan });
+    // Stage 2: Generate file contents
+    const files: Record<string, string> = {};
+    const filePromises = plan.files.map(async (file: { path: string; description: string }) => {
+      const fileResponse = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: `Generate the complete source code for the file "${file.path}" in this project: ${prompt}. File purpose: ${file.description}. Return ONLY the raw code, no explanations or markdown fences.`,
+        config: {
+          systemInstruction: "You are an expert developer. Generate production-ready, complete source code for the specified file. Return only the code content, nothing else.",
+        }
+      });
+      files[file.path] = fileResponse.text.replace(/^```[\w]*\n?/gm, "").replace(/\n?```$/gm, "").trim();
+    });
+
+    await Promise.all(filePromises);
+
+    res.json({ plan, files });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
-import { collection, query, where, getDocs, addDoc, serverTimestamp } from "firebase/firestore";
+import { collection, query, where, getDocs, deleteDoc, doc } from "firebase/firestore";
 import { db, auth, handleFirestoreError, OperationType } from "../lib/firebase";
+import { createProject } from "../lib/projectUtils";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { Plus, Folder, Clock, Search, LayoutTemplate, X, Filter, Grid, List as ListIcon, ChevronRight } from "lucide-react";
@@ -35,21 +36,10 @@ export default function Projects() {
 
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newProjectName || !auth.currentUser) return;
-    
+    if (!newProjectName) return;
     try {
-      const docRef = await addDoc(collection(db, "projects"), {
-        name: newProjectName,
-        ownerId: auth.currentUser.uid,
-        status: "active",
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        files: {
-          "App.tsx": `export default function App() {\n  return <div>Welcome to ${newProjectName}</div>;\n}`,
-          "index.css": "@import 'tailwindcss';\nbody { background: #000; color: #fff; }",
-        }
-      });
-      navigate(`/workspace/${docRef.id}`);
+      const docRef = await createProject(newProjectName);
+      navigate(`/workspace/${docRef}`);
     } catch (err) {
       handleFirestoreError(err, OperationType.WRITE, "projects");
     }

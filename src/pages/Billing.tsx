@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import { doc, updateDoc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
+import { db, auth } from "../lib/firebase";
 import { motion } from "motion/react";
 import { 
   CreditCard, Shield, Zap, BarChart3, 
@@ -22,7 +24,27 @@ export default function Billing() {
   const isPaypalConfigured = !!paypalClientId && paypalClientId !== "" && paypalClientId !== "sb";
   const isRazorpayConfigured = !!razorpayKeyId && razorpayKeyId !== "";
 
+  const [userSubscription, setUserSubscription] = useState("free");
+  const [projectCount, setProjectCount] = useState(0);
   const [isLoadingConfig, setIsLoadingConfig] = useState(true);
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      if (!auth.currentUser) return;
+      try {
+        const userSnap = await getDoc(doc(db, "users", auth.currentUser.uid));
+        if (userSnap.exists()) {
+          setUserSubscription(userSnap.data().subscription || "free");
+        }
+        const projectsQ = query(collection(db, "projects"), where("ownerId", "==", auth.currentUser.uid));
+        const projectsSnap = await getDocs(projectsQ);
+        setProjectCount(projectsSnap.size);
+      } catch (err) {
+        console.error("Failed to fetch user data:", err);
+      }
+    };
+    fetchUserData();
+  }, []);
 
   useEffect(() => {
     // Fetch dynamic config if needed
@@ -57,6 +79,18 @@ export default function Billing() {
     clientId: paypalClientId || "sb",
     currency: "USD",
     intent: "capture",
+  };
+
+  const updateSubscription = async (planName: string) => {
+    if (!auth.currentUser) return;
+    try {
+      await updateDoc(doc(db, "users", auth.currentUser.uid), {
+        subscription: planName.toLowerCase(),
+        subscriptionUpdatedAt: new Date().toISOString(),
+      });
+    } catch (err) {
+      console.error("Failed to update subscription:", err);
+    }
   };
 
   const handlePaymentError = (err: any) => {
@@ -110,10 +144,11 @@ export default function Billing() {
           const verifyRes = await fetch("/api/razorpay/verify-payment", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(response),
+            body: JSON.stringify({ ...response, userId: auth.currentUser?.uid, planName }),
           });
           const verifyData = await verifyRes.json();
           if (verifyData.status === "ok") {
+            await updateSubscription(planName);
             alert(`Neural Tier Upgraded: ${planName.toUpperCase()} session initialized.`);
           } else {
             alert("Verification Failed");
@@ -133,16 +168,17 @@ export default function Billing() {
     }
   };
 
-  const usageStats = [
-    { label: "Neural Tokens", value: "842k", limit: "1M", percent: 84.2, color: "text-cyan-400" },
-    { label: "Agent Hours", value: "128h", limit: "500h", percent: 25.6, color: "text-blue-400" },
-    { label: "Deployments", value: "12", limit: "Unlimited", percent: 0, color: "text-purple-400" },
-  ];
+  const tierLimits: Record<string, { tokens: string; projects: string }> = {
+    free: { tokens: "50k", projects: "3" },
+    scale: { tokens: "1M", projects: "50" },
+    enterprise: { tokens: "Unlimited", projects: "Unlimited" },
+  };
+  const currentTier = tierLimits[userSubscription] || tierLimits.free;
 
-  const invoices = [
-    { id: "INV-2026-004", date: "May 01, 2026", amount: "$99.00", status: "Paid" },
-    { id: "INV-2026-003", date: "Apr 01, 2026", amount: "$99.00", status: "Paid" },
-    { id: "INV-2026-002", date: "Mar 01, 2026", amount: "$99.00", status: "Paid" },
+  const usageStats = [
+    { label: "Subscription Tier", value: userSubscription.charAt(0).toUpperCase() + userSubscription.slice(1), limit: "", percent: 0, color: "text-cyan-400" },
+    { label: "Projects", value: projectCount.toString(), limit: currentTier.projects, percent: currentTier.projects === "Unlimited" ? 0 : Math.min((projectCount / parseInt(currentTier.projects)) * 100, 100), color: "text-blue-400" },
+    { label: "Token Limit", value: currentTier.tokens, limit: "", percent: 0, color: "text-purple-400" },
   ];
 
   return (
@@ -297,10 +333,11 @@ export default function Billing() {
                                   const res = await fetch("/api/paypal/capture-order", {
                                     method: "POST",
                                     headers: { "Content-Type": "application/json" },
-                                    body: JSON.stringify({ orderId: data.orderID })
+                                    body: JSON.stringify({ orderId: data.orderID, userId: auth.currentUser?.uid, planName: "Scale" })
                                   });
                                   const capture = await res.json();
                                   if (capture.status === "COMPLETED") {
+                                    await updateSubscription("Scale");
                                     alert("Neural Tier Upgraded: SCALE session initialized.");
                                   } else {
                                     throw new Error("CAPTURE_FAILED");
@@ -318,7 +355,7 @@ export default function Billing() {
 
                         <div className="space-y-2">
                           <label className="text-[10px] font-bold text-slate-500 dark:text-slate-500 uppercase tracking-wider block px-1">Alternative Node</label>
-                          <button 
+                          <button
                             onClick={() => handleRazorpayPayment("69.00", "Scale")}
                             disabled={isProcessing}
                             className="w-full h-[35px] bg-[#3395ff] hover:bg-[#2087f1] text-white flex items-center justify-center gap-2 rounded-lg transition-all group overflow-hidden relative shadow-sm"
@@ -376,10 +413,11 @@ export default function Billing() {
                                   const res = await fetch("/api/paypal/capture-order", {
                                     method: "POST",
                                     headers: { "Content-Type": "application/json" },
-                                    body: JSON.stringify({ orderId: data.orderID })
+                                    body: JSON.stringify({ orderId: data.orderID, userId: auth.currentUser?.uid, planName: "Enterprise" })
                                   });
                                   const capture = await res.json();
                                   if (capture.status === "COMPLETED") {
+                                    await updateSubscription("Enterprise");
                                     alert("Neural Tier Upgraded: ENTERPRISE session initialized.");
                                   } else {
                                     throw new Error("CAPTURE_FAILED");
@@ -449,23 +487,9 @@ export default function Billing() {
                 </tr>
               </thead>
               <tbody>
-                {invoices.map((inv, i) => (
-                  <tr key={i} className="border-b border-black/5 dark:border-white/5 hover:bg-slate-50 dark:hover:bg-white/[0.03] transition-colors group">
-                    <td className="px-8 py-6 font-mono text-xs font-bold text-slate-700 dark:text-slate-300">{inv.id}</td>
-                    <td className="px-8 py-6 text-sm font-medium text-slate-500 dark:text-slate-400">{inv.date}</td>
-                    <td className="px-8 py-6 text-sm font-bold text-slate-900 dark:text-white">{inv.amount}</td>
-                    <td className="px-8 py-6">
-                      <span className="px-3 py-1 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold rounded-full uppercase tracking-widest">
-                        {inv.status}
-                      </span>
-                    </td>
-                    <td className="px-8 py-6 text-right">
-                      <button className="p-2 text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors">
-                        <Download className="w-4 h-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                <tr>
+                  <td colSpan={5} className="px-8 py-10 text-center text-slate-500 dark:text-slate-400 text-xs font-medium">No invoices yet. Payments will appear here after your first subscription.</td>
+                </tr>
               </tbody>
             </table>
           </div>
