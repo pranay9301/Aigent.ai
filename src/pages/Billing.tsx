@@ -19,8 +19,8 @@ export default function Billing() {
     razorpayKeyId: string;
   } | null>(null);
 
-  const paypalClientId = dynamicConfig?.paypalClientId || import.meta.env.VITE_PAYPAL_CLIENT_ID;
-  const razorpayKeyId = dynamicConfig?.razorpayKeyId || import.meta.env.VITE_RAZORPAY_KEY_ID;
+  const paypalClientId = dynamicConfig?.paypalClientId || import.meta.env.VITE_PAYPAL_CLIENT_ID || "AUgGGIucZj-6Ob_b2NyrZw9Uv7WwTaw80TPlgM8Xj-ElO6Snknk42NL2mJ7ofeG1wRAn8E-vFOQHhjWr";
+  const razorpayKeyId = dynamicConfig?.razorpayKeyId || import.meta.env.VITE_RAZORPAY_KEY_ID || "rzp_live_SpCXyw5DStKC5o";
   const isPaypalConfigured = !!paypalClientId && paypalClientId !== "" && paypalClientId !== "sb";
   const isRazorpayConfigured = !!razorpayKeyId && razorpayKeyId !== "";
 
