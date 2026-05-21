@@ -3,9 +3,13 @@ import path from "path";
 import { Type } from "@google/genai";
 import dotenv from "dotenv";
 import crypto from "crypto";
-import { pruneContext, cache } from "./src/lib/neural-optim";
+import { pruneContext, cache, setPersistFn } from "./src/lib/neural-optim";
+import { persistCacheEntry } from "./src/lib/server-cache";
 
 dotenv.config();
+
+// Wire Firestore cache persistence
+setPersistFn(persistCacheEntry);
 
 const app = express();
 const PORT = 3000;
@@ -54,7 +58,8 @@ app.get("/api/health", (req, res) => {
       services: {
         gemini: !!process.env.GEMINI_API_KEY ? "healthy" : "disconnected",
         paypal: !!paypalId ? "connected" : "disconnected",
-        razorpay: !!process.env.RAZORPAY_KEY_ID ? "healthy" : "idle"
+        razorpay: !!process.env.RAZORPAY_KEY_ID ? "healthy" : "idle",
+        cache: !!(process.env.FIREBASE_SERVICE_ACCOUNT_KEY || process.env.FIREBASE_PROJECT_ID) ? "persisted" : "in-memory"
       },
       env: {
         node: process.version,

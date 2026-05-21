@@ -74,10 +74,7 @@ export default function Workspace() {
   const [isNewFileModalOpen, setIsNewFileModalOpen] = useState(false);
   const [newFileName, setNewFileName] = useState("");
   const [notifications, setNotifications] = useState<{id: string, text: string}[]>([]);
-  const [auditLogs, setAuditLogs] = useState<{id: string, agent: string, action: string, reason: string, time: string}[]>([
-    { id: "1", agent: "DevOps", action: "DEPLOY_NEURAL_STAGING", reason: "Initialized environment for high-throughput I/O.", time: "2m ago" },
-    { id: "2", agent: "Developer", action: "FILE_MUTATION: App.tsx", reason: "Refactored component for neural scalability.", time: "5m ago" },
-  ]);
+  const [auditLogs, setAuditLogs] = useState<{id: string, agent: string, action: string, reason: string, time: string}[]>([]);
   const [pendingApprovals, setPendingApprovals] = useState<{id: string, agent: string, action: string, cost?: string}[]>([]);
   const [rightPanelTab, setRightPanelTab] = useState<"chat" | "trace" | "approvals">("chat");
   const [fileVersions, setFileVersions] = useState<Record<string, string[]>>({});
@@ -572,16 +569,23 @@ export default function Workspace() {
                     <Terminal className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
                     <span className="text-[11px] font-bold text-slate-900 dark:text-white uppercase tracking-wider">Neural Reasoning Trace</span>
                   </div>
-                  {auditLogs.map(log => (
-                    <div key={log.id} className="p-4 rounded-xl bg-black/[0.01] dark:bg-white/[0.02] border border-black/5 dark:border-white/5 space-y-2">
-                      <div className="flex justify-between items-center">
-                        <span className="text-[10px] font-bold text-cyan-700 dark:text-cyan-400 uppercase">[{log.agent}]</span>
-                        <span className="text-[9px] text-slate-500 dark:text-slate-500">{log.time}</span>
-                      </div>
-                      <p className="text-[11px] text-slate-900 dark:text-white font-bold">{log.action}</p>
-                      <p className="text-[10px] text-slate-500 dark:text-slate-500 leading-relaxed">REASON: {log.reason}</p>
+                  {auditLogs.length === 0 ? (
+                    <div className="text-center py-20">
+                      <Terminal className="w-12 h-12 text-slate-200 dark:text-slate-800 mx-auto mb-4" />
+                      <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">No trace entries yet.</p>
                     </div>
-                  ))}
+                  ) : (
+                    auditLogs.map(log => (
+                      <div key={log.id} className="p-4 rounded-xl bg-black/[0.01] dark:bg-white/[0.02] border border-black/5 dark:border-white/5 space-y-2">
+                        <div className="flex justify-between items-center">
+                          <span className="text-[10px] font-bold text-cyan-700 dark:text-cyan-400 uppercase">[{log.agent}]</span>
+                          <span className="text-[9px] text-slate-500 dark:text-slate-500">{log.time}</span>
+                        </div>
+                        <p className="text-[11px] text-slate-900 dark:text-white font-bold">{log.action}</p>
+                        <p className="text-[10px] text-slate-500 dark:text-slate-500 leading-relaxed">REASON: {log.reason}</p>
+                      </div>
+                    ))
+                  )}
                 </div>
               )}
 
