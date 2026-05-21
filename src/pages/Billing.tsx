@@ -300,57 +300,58 @@ export default function Billing() {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <label className="text-[10px] font-bold text-slate-500 dark:text-slate-500 uppercase tracking-wider block px-1">Global Gateway</label>
-                          <PayPalScriptProvider options={paypalOptions}>
-                            <PayPalButtons 
-                              style={{ layout: "horizontal", height: 35, color: "blue", shape: "rect", label: "pay" }}
-                              createOrder={async () => {
-                                if (!isPaypalConfigured) {
-                                  const msg = "PAYPAL_CLIENT_ID_MISSING: Deployment detected no PayPal keys. Please configure VITE_PAYPAL_CLIENT_ID or PAYPAL_CLIENT_ID.";
-                                  handlePaymentError(msg);
-                                  throw new Error(msg);
-                                }
+                          {isPaypalConfigured ? (
+                            <PayPalScriptProvider options={paypalOptions}>
+                              <PayPalButtons
+                                style={{ layout: "horizontal", height: 35, color: "blue", shape: "rect", label: "pay" }}
+                                createOrder={async () => {
+                                    try {
+                                      const res = await fetch("/api/paypal/create-order", {
+                                        method: "POST",
+                                        headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify({ amount: "69.00", planName: "Scale" })
+                                      });
+                                      if (!res.ok) {
+                                        const errorData = await res.json().catch(() => ({ error: "NETWORK_ERROR" }));
+                                        throw new Error(errorData.message || errorData.error || "API_ERROR");
+                                      }
+                                      const data = await res.json();
+                                      if (!data.id) throw new Error("INVALID_ORDER_ID");
+                                      return data.id;
+                                    } catch (err: any) {
+                                      handlePaymentError(err);
+                                      throw err;
+                                    }
+                                }}
+                                onApprove={async (data) => {
+                                  setIsProcessing(true);
                                   try {
-                                    const res = await fetch("/api/paypal/create-order", {
+                                    const res = await fetch("/api/paypal/capture-order", {
                                       method: "POST",
                                       headers: { "Content-Type": "application/json" },
-                                      body: JSON.stringify({ amount: "69.00", planName: "Scale" })
+                                      body: JSON.stringify({ orderId: data.orderID, userId: auth.currentUser?.uid, planName: "Scale" })
                                     });
-                                    if (!res.ok) {
-                                      const errorData = await res.json().catch(() => ({ error: "NETWORK_ERROR" }));
-                                      throw new Error(errorData.message || errorData.error || "API_ERROR");
+                                    const capture = await res.json();
+                                    if (capture.status === "COMPLETED") {
+                                      await updateSubscription("Scale");
+                                      alert("Neural Tier Upgraded: SCALE session initialized.");
+                                    } else {
+                                      throw new Error("CAPTURE_FAILED");
                                     }
-                                    const data = await res.json();
-                                    if (!data.id) throw new Error("INVALID_ORDER_ID");
-                                    return data.id;
-                                  } catch (err: any) {
+                                  } catch (err) {
                                     handlePaymentError(err);
-                                    throw err;
+                                  } finally {
+                                    setIsProcessing(false);
                                   }
-                              }}
-                              onApprove={async (data) => {
-                                setIsProcessing(true);
-                                try {
-                                  const res = await fetch("/api/paypal/capture-order", {
-                                    method: "POST",
-                                    headers: { "Content-Type": "application/json" },
-                                    body: JSON.stringify({ orderId: data.orderID, userId: auth.currentUser?.uid, planName: "Scale" })
-                                  });
-                                  const capture = await res.json();
-                                  if (capture.status === "COMPLETED") {
-                                    await updateSubscription("Scale");
-                                    alert("Neural Tier Upgraded: SCALE session initialized.");
-                                  } else {
-                                    throw new Error("CAPTURE_FAILED");
-                                  }
-                                } catch (err) {
-                                  handlePaymentError(err);
-                                } finally {
-                                  setIsProcessing(false);
-                                }
-                              }}
-                              onError={handlePaymentError}
-                            />
-                          </PayPalScriptProvider>
+                                }}
+                                onError={handlePaymentError}
+                              />
+                            </PayPalScriptProvider>
+                          ) : (
+                            <div className="w-full h-[35px] bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 flex items-center justify-center rounded-lg text-[10px] font-bold">
+                              PayPal not configured
+                            </div>
+                          )}
                         </div>
 
                         <div className="space-y-2">
@@ -380,62 +381,63 @@ export default function Billing() {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <label className="text-[10px] font-bold text-slate-500 dark:text-slate-500 uppercase tracking-wider block px-1">Global Gateway</label>
-                          <PayPalScriptProvider options={paypalOptions}>
-                            <PayPalButtons 
-                              style={{ layout: "horizontal", height: 35, color: "silver", shape: "rect", label: "pay" }}
-                              createOrder={async () => {
-                                if (!isPaypalConfigured) {
-                                  const msg = "PAYPAL_CLIENT_ID_MISSING: Deployment detected no PayPal keys. Please configure VITE_PAYPAL_CLIENT_ID or PAYPAL_CLIENT_ID.";
-                                  handlePaymentError(msg);
-                                  throw new Error(msg);
-                                }
-                                try {
-                                  const res = await fetch("/api/paypal/create-order", {
-                                    method: "POST",
-                                    headers: { "Content-Type": "application/json" },
-                                    body: JSON.stringify({ amount: "299.00", planName: "Enterprise" })
-                                  });
-                                  if (!res.ok) {
-                                    const errorData = await res.json().catch(() => ({ error: "NETWORK_ERROR" }));
-                                    throw new Error(errorData.message || errorData.error || "API_ERROR");
+                          {isPaypalConfigured ? (
+                            <PayPalScriptProvider options={paypalOptions}>
+                              <PayPalButtons
+                                style={{ layout: "horizontal", height: 35, color: "silver", shape: "rect", label: "pay" }}
+                                createOrder={async () => {
+                                    try {
+                                      const res = await fetch("/api/paypal/create-order", {
+                                        method: "POST",
+                                        headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify({ amount: "299.00", planName: "Enterprise" })
+                                      });
+                                      if (!res.ok) {
+                                        const errorData = await res.json().catch(() => ({ error: "NETWORK_ERROR" }));
+                                        throw new Error(errorData.message || errorData.error || "API_ERROR");
+                                      }
+                                      const data = await res.json();
+                                      if (!data.id) throw new Error("INVALID_ORDER_ID");
+                                      return data.id;
+                                    } catch (err: any) {
+                                      handlePaymentError(err);
+                                      throw err;
+                                    }
+                                }}
+                                onApprove={async (data) => {
+                                  setIsProcessing(true);
+                                  try {
+                                    const res = await fetch("/api/paypal/capture-order", {
+                                      method: "POST",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({ orderId: data.orderID, userId: auth.currentUser?.uid, planName: "Enterprise" })
+                                    });
+                                    const capture = await res.json();
+                                    if (capture.status === "COMPLETED") {
+                                      await updateSubscription("Enterprise");
+                                      alert("Neural Tier Upgraded: ENTERPRISE session initialized.");
+                                    } else {
+                                      throw new Error("CAPTURE_FAILED");
+                                    }
+                                  } catch (err) {
+                                    handlePaymentError(err);
+                                  } finally {
+                                    setIsProcessing(false);
                                   }
-                                  const data = await res.json();
-                                  if (!data.id) throw new Error("INVALID_ORDER_ID");
-                                  return data.id;
-                                } catch (err: any) {
-                                  handlePaymentError(err);
-                                  throw err;
-                                }
-                              }}
-                              onApprove={async (data) => {
-                                setIsProcessing(true);
-                                try {
-                                  const res = await fetch("/api/paypal/capture-order", {
-                                    method: "POST",
-                                    headers: { "Content-Type": "application/json" },
-                                    body: JSON.stringify({ orderId: data.orderID, userId: auth.currentUser?.uid, planName: "Enterprise" })
-                                  });
-                                  const capture = await res.json();
-                                  if (capture.status === "COMPLETED") {
-                                    await updateSubscription("Enterprise");
-                                    alert("Neural Tier Upgraded: ENTERPRISE session initialized.");
-                                  } else {
-                                    throw new Error("CAPTURE_FAILED");
-                                  }
-                                } catch (err) {
-                                  handlePaymentError(err);
-                                } finally {
-                                  setIsProcessing(false);
-                                }
-                              }}
-                              onError={handlePaymentError}
-                            />
-                          </PayPalScriptProvider>
+                                }}
+                                onError={handlePaymentError}
+                              />
+                            </PayPalScriptProvider>
+                          ) : (
+                            <div className="w-full h-[35px] bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 flex items-center justify-center rounded-lg text-[10px] font-bold">
+                              PayPal not configured
+                            </div>
+                          )}
                         </div>
 
                         <div className="space-y-2">
                           <label className="text-[10px] font-bold text-slate-500 dark:text-slate-500 uppercase tracking-wider block px-1">Alternative Node</label>
-                          <button 
+                          <button
                             onClick={() => handleRazorpayPayment("299.00", "Enterprise")}
                             disabled={isProcessing}
                             className="w-full h-[35px] bg-[#3395ff] hover:bg-[#2087f1] text-white flex items-center justify-center gap-2 rounded-lg transition-all group overflow-hidden relative shadow-sm"
