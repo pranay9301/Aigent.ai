@@ -31,12 +31,8 @@ const getRazorpay = async () => {
   if (!Razorpay) {
     Razorpay = (await import("razorpay")).default;
   }
-  const key_id = process.env.RAZORPAY_KEY_ID
-    || process.env.VITE_RAZORPAY_KEY_ID
-    || "rzp_live_SpCXyw5DStKC5o";
-  const key_secret = process.env.RAZORPAY_KEY_SECRET
-    || process.env.VITE_RAZORPAY_KEY_SECRET
-    || "Q2Po6EULQ5qsziBNOV9i4C9f";
+  const key_id = process.env.RAZORPAY_KEY_ID || process.env.VITE_RAZORPAY_KEY_ID;
+  const key_secret = process.env.RAZORPAY_KEY_SECRET || process.env.VITE_RAZORPAY_KEY_SECRET;
   if (!key_id || !key_secret) return null;
   return new Razorpay({ key_id, key_secret });
 };
@@ -58,7 +54,7 @@ app.get("/api/health", (req, res) => {
       services: {
         gemini: !!process.env.GEMINI_API_KEY ? "healthy" : "disconnected",
         paypal: !!paypalId ? "connected" : "disconnected",
-        razorpay: !!(process.env.RAZORPAY_KEY_ID || "rzp_live_SpCXyw5DStKC5o") ? "healthy" : "idle"
+        razorpay: !!process.env.RAZORPAY_KEY_ID ? "healthy" : "idle"
       },
       env: {
         node: process.version,
@@ -75,23 +71,15 @@ app.get("/api/health", (req, res) => {
 
 app.get("/api/config", (req, res) => {
   try {
-    const paypalId = process.env.PAYPAL_CLIENT_ID
-      || process.env.VITE_PAYPAL_CLIENT_ID
-      || "AUgGGIucZj-6Ob_b2NyrZw9Uv7WwTaw80TPlgM8Xj-ElO6Snknk42NL2mJ7ofeG1wRAn8E-vFOQHhjWr";
-    const paypalSecret = process.env.PAYPAL_CLIENT_SECRET
-      || process.env.VITE_PAYPAL_CLIENT_SECRET
-      || "EHl6F59RBHFdAqYpb7aIQ01fFEGa0SR5vBoIOiBI3OmLCev3DVuAnNTKpkbiLhb2DQBI-8s7mX24c3ji";
-    const razorpayId = process.env.RAZORPAY_KEY_ID
-      || process.env.VITE_RAZORPAY_KEY_ID
-      || "rzp_live_SpCXyw5DStKC5o";
+    const paypalId = process.env.PAYPAL_CLIENT_ID || process.env.VITE_PAYPAL_CLIENT_ID || "";
+    const razorpayId = process.env.RAZORPAY_KEY_ID || process.env.VITE_RAZORPAY_KEY_ID || "";
 
     res.json({
       paypalClientId: paypalId,
       razorpayKeyId: razorpayId,
-      isPaypalLive: true,
-      hasPaypalSecret: !!paypalSecret,
-      paypalMode: "live",
-      serverMode: process.env.NODE_ENV || "production"
+      isPaypalLive: process.env.PAYPAL_MODE === "live",
+      hasPaypalSecret: !!process.env.PAYPAL_CLIENT_SECRET,
+      serverMode: process.env.NODE_ENV || "development"
     });
   } catch (error) {
     console.error("Config fetch error:", error);
@@ -243,12 +231,8 @@ let paypalClientInstance: any = null;
 const getPayPalClient = async () => {
   if (paypalClientInstance) return paypalClientInstance;
 
-  const clientId = process.env.PAYPAL_CLIENT_ID
-    || process.env.VITE_PAYPAL_CLIENT_ID
-    || "AUgGGIucZj-6Ob_b2NyrZw9Uv7WwTaw80TPlgM8Xj-ElO6Snknk42NL2mJ7ofeG1wRAn8E-vFOQHhjWr";
-  const clientSecret = process.env.PAYPAL_CLIENT_SECRET
-    || process.env.VITE_PAYPAL_CLIENT_SECRET
-    || "EHl6F59RBHFdAqYpb7aIQ01fFEGa0SR5vBoIOiBI3OmLCev3DVuAnNTKpkbiLhb2DQBI-8s7mX24c3ji";
+  const clientId = process.env.PAYPAL_CLIENT_ID || process.env.VITE_PAYPAL_CLIENT_ID;
+  const clientSecret = process.env.PAYPAL_CLIENT_SECRET || process.env.VITE_PAYPAL_CLIENT_SECRET;
 
   if (!clientId || !clientSecret || clientId === "sb") {
     return null;
@@ -367,8 +351,11 @@ app.post("/api/razorpay/create-order", async (req, res) => {
 
 // Razorpay Webhook Endpoint
 app.post("/api/razorpay/webhook", (req, res) => {
-  const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET
-    || "JDLOOCTYMON01051993MONTY";
+  const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
+
+  if (!webhookSecret) {
+    return res.status(503).json({ error: "WEBHOOK_SECRET_NOT_CONFIGURED" });
+  }
 
   const signature = req.headers["x-razorpay-signature"];
   const body = JSON.stringify(req.body);
@@ -396,9 +383,7 @@ app.post("/api/razorpay/webhook", (req, res) => {
 
 app.post("/api/razorpay/verify-payment", async (req, res) => {
   const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
-  const key_secret = process.env.RAZORPAY_KEY_SECRET
-    || process.env.VITE_RAZORPAY_KEY_SECRET
-    || "Q2Po6EULQ5qsziBNOV9i4C9f";
+  const key_secret = process.env.RAZORPAY_KEY_SECRET || process.env.VITE_RAZORPAY_KEY_SECRET;
 
   if (!key_secret) {
     return res.status(401).json({ error: "RAZORPAY_SECRET_MISSING" });
