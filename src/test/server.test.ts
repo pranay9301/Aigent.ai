@@ -96,13 +96,13 @@ describe("Server endpoints", () => {
       expect(res.body.error).toBeTruthy();
     });
 
-    it("returns 503 when SENDGRID_API_KEY is not set", async () => {
+    it("returns 503 when RESEND_API_KEY is not set", async () => {
       const res = await request(app)
         .post("/api/email/send")
         .send({ to: "test@example.com", subject: "Test", body: "Hello" });
-      if (!process.env.SENDGRID_API_KEY) {
+      if (!process.env.RESEND_API_KEY) {
         expect(res.status).toBe(503);
-        expect(res.body.error).toBe("SENDGRID_NOT_CONFIGURED");
+        expect(res.body.error).toBe("EMAIL_SERVICE_NOT_CONFIGURED");
       }
     });
   });

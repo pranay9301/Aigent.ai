@@ -415,24 +415,24 @@ app.post("/api/email/send", async (req, res) => {
     return res.status(400).json({ error: "Missing required fields: to, subject, body" });
   }
 
-  const sendgridKey = process.env.SENDGRID_API_KEY;
-  if (!sendgridKey) {
-    return res.status(503).json({ error: "SENDGRID_NOT_CONFIGURED" });
+  const resendKey = process.env.RESEND_API_KEY;
+  if (!resendKey) {
+    return res.status(503).json({ error: "EMAIL_SERVICE_NOT_CONFIGURED" });
   }
 
   try {
-    const sgMail = (await import("@sendgrid/mail")).default;
-    sgMail.setApiKey(sendgridKey);
-    await sgMail.send({
+    const { Resend } = await import("resend");
+    const resend = new Resend(resendKey);
+    await resend.emails.send({
       to,
-      from: process.env.SENDGRID_FROM_EMAIL || "noreply@aigent.ai",
+      from: process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev",
       subject,
       text: body,
       html: `<div style="font-family: sans-serif; line-height: 1.6;">${body.replace(/\n/g, "<br>")}</div>`,
     });
     res.json({ status: "ok", message: "Email sent" });
   } catch (err: any) {
-    console.error("SendGrid error:", err);
+    console.error("Resend error:", err);
     res.status(500).json({ error: "EMAIL_SEND_FAILED", details: err.message });
   }
 });
