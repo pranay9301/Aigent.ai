@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { doc, getDoc, updateDoc, serverTimestamp } from "firebase/firestore";
+import { doc, getDoc, updateDoc, serverTimestamp, collection, getDocs, addDoc, deleteDoc } from "firebase/firestore";
 import { db, handleFirestoreError, OperationType } from "../lib/firebase";
 import Editor from "@monaco-editor/react";
 import { motion, AnimatePresence } from "motion/react";
@@ -101,6 +101,7 @@ export default function Workspace() {
           const data = snap.data();
           setProject(data);
           setFiles(data.files || {});
+          setFileVersions(data.fileVersions || {});
           setLoading(false);
         } else {
           navigate("/dashboard");
@@ -112,22 +113,37 @@ export default function Workspace() {
     fetchProject();
   }, [projectId]);
 
+  // Load approvals from Firestore
+  useEffect(() => {
+    const fetchApprovals = async () => {
+      if (!projectId) return;
+      try {
+        const approvalsRef = collection(db, "projects", projectId, "approvals");
+        const snap = await getDocs(approvalsRef);
+        const items = snap.docs.map(d => ({ id: d.id, ...d.data() })) as {id: string, agent: string, action: string, cost?: string, status?: string}[];
+        setPendingApprovals(items.filter(a => a.status === "pending" || !a.status));
+      } catch (err) {
+        console.error("Failed to load approvals:", err);
+      }
+    };
+    fetchApprovals();
+  }, [projectId]);
+
   const handleSave = async () => {
     if (!projectId) return;
     try {
-      // Store previous versions before saving
-      setFileVersions(prev => {
-        const updated = { ...prev };
-        Object.entries(files).forEach(([path, content]) => {
-          const existing = updated[path] || [];
-          if (existing.length === 0 || existing[existing.length - 1] !== content) {
-            updated[path] = [...existing, content].slice(-5); // Keep last 5 versions
-          }
-        });
-        return updated;
+      // Compute updated file versions
+      const updatedVersions: Record<string, string[]> = { ...fileVersions };
+      Object.entries(files).forEach(([path, content]) => {
+        const existing = updatedVersions[path] || [];
+        if (existing.length === 0 || existing[existing.length - 1] !== content) {
+          updatedVersions[path] = [...existing, content].slice(-5);
+        }
       });
+      setFileVersions(updatedVersions);
       await updateDoc(doc(db, "projects", projectId), {
         files,
+        fileVersions: updatedVersions,
         updatedAt: new Date().toISOString(),
       });
       addNotification("MEMORY_SAVED: Neural states persisted.");
@@ -592,19 +608,53 @@ export default function Workspace() {
                           <p className="text-sm font-bold text-slate-950 dark:text-white">{app.action}</p>
                         </div>
                         <div className="flex gap-2">
-                          <button onClick={() => setPendingApprovals(prev => prev.filter(p => p.id !== app.id))} className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold rounded-lg uppercase tracking-wider transition-all shadow-sm">APPROVE</button>
-                          <button onClick={() => setPendingApprovals(prev => prev.filter(p => p.id !== app.id))} className="flex-1 py-2 bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-white text-[10px] font-bold rounded-lg uppercase tracking-wider transition-all">DENY</button>
+                          <button onClick={async () => {
+                            if (!projectId) return;
+                            try {
+                              await deleteDoc(doc(db, "projects", projectId, "approvals", app.id));
+                              setPendingApprovals(prev => prev.filter(p => p.id !== app.id));
+                              addNotification("APPROVED: Action authorized and executed.");
+                            } catch (err) {
+                              addNotification("ERROR: Approval processing failed.");
+                            }
+                          }} className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold rounded-lg uppercase tracking-wider transition-all shadow-sm">APPROVE</button>
+                          <button onClick={async () => {
+                            if (!projectId) return;
+                            try {
+                              await deleteDoc(doc(db, "projects", projectId, "approvals", app.id));
+                              setPendingApprovals(prev => prev.filter(p => p.id !== app.id));
+                              addNotification("DENIED: Action rejected.");
+                            } catch (err) {
+                              addNotification("ERROR: Denial processing failed.");
+                            }
+                          }} className="flex-1 py-2 bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-white text-[10px] font-bold rounded-lg uppercase tracking-wider transition-all">DENY</button>
                         </div>
                       </div>
                     ))
                   )}
-                  {/* Mock high stakes action trigger */}
+                  {/* Create a test approval */}
                   <div className="pt-10 border-t border-black/5 dark:border-white/5">
-                    <button 
-                      onClick={() => setPendingApprovals(prev => [{ id: "3", agent: "Market", action: "DEPLOY_FB_ADS_CAMPAIGN: Neural_Omni_V1", cost: "$250.00" }, ...prev])}
+                    <button
+                      onClick={async () => {
+                        if (!projectId) return;
+                        try {
+                          const approvalsRef = collection(db, "projects", projectId, "approvals");
+                          const docRef = await addDoc(approvalsRef, {
+                            agent: "Market",
+                            action: "DEPLOY_FB_ADS_CAMPAIGN: Neural_Omni_V1",
+                            cost: "$250.00",
+                            status: "pending",
+                            createdAt: new Date().toISOString(),
+                          });
+                          setPendingApprovals(prev => [{ id: docRef.id, agent: "Market", action: "DEPLOY_FB_ADS_CAMPAIGN: Neural_Omni_V1", cost: "$250.00" }, ...prev]);
+                          addNotification("APPROVAL_CREATED: High-stakes action pending review.");
+                        } catch (err) {
+                          addNotification("ERROR: Failed to create approval.");
+                        }
+                      }}
                       className="w-full py-3 bg-red-500/5 border border-red-500/20 text-red-700 dark:text-red-400 text-[10px] font-bold rounded-xl hover:bg-red-500 hover:text-white transition-all uppercase tracking-wider font-mono shadow-sm"
                     >
-                      Trigger Mock High-Stakes Action
+                      Create Test Approval
                     </button>
                   </div>
                 </div>

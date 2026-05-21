@@ -319,8 +319,6 @@ app.post("/api/paypal/capture-order", async (req, res) => {
   }
 });
 
-// --- Razorpay Neural Payment Infrastructure ---
-let razorpayInstance: any = null;
 
 app.post("/api/razorpay/create-order", async (req, res) => {
   const { amount, currency = "USD" } = req.body;

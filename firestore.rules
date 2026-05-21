@@ -18,8 +18,7 @@ service cloud.firestore {
 
     function isAdmin() {
       return isSignedIn() && (
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin" ||
-        request.auth.token.email == "pranay.01.kar@gmail.com"
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin"
       );
     }
 
@@ -58,9 +57,16 @@ service cloud.firestore {
       }
 
       allow create: if isSignedIn() && isValidProject(request.resource.data);
-      allow update: if isSignedIn() && (isOwner(resource.data.ownerId) || isAdmin()) && 
+      allow update: if isSignedIn() && (isOwner(resource.data.ownerId) || isAdmin()) &&
                     isValidProject(request.resource.data);
       allow delete: if isSignedIn() && (isOwner(resource.data.ownerId) || isAdmin());
+
+      // Approvals subcollection for high-stakes actions
+      match /approvals/{approvalId} {
+        allow get, list: if isSignedIn() && (isOwner(get(/databases/$(database)/documents/projects/$(projectId)).data.ownerId) || isAdmin());
+        allow create: if isSignedIn() && (isOwner(get(/databases/$(database)/documents/projects/$(projectId)).data.ownerId) || isAdmin());
+        allow update, delete: if isSignedIn() && (isOwner(get(/databases/$(database)/documents/projects/$(projectId)).data.ownerId) || isAdmin());
+      }
     }
   }
 }
