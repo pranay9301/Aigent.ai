@@ -86,7 +86,7 @@ export async function persistCacheEntry(key: string, value: any, expiresAt: numb
   }
 }
 
-// Start hydration (non-blocking)
-hydrateCache();
+// Start hydration (non-blocking, with error boundary for serverless)
+hydrateCache().catch(() => {});
 
 export { initFirestore };
