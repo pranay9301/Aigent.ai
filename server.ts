@@ -71,15 +71,21 @@ app.get("/api/health", (req, res) => {
 
 app.get("/api/config", (req, res) => {
   try {
-    const paypalId = process.env.PAYPAL_CLIENT_ID || process.env.VITE_PAYPAL_CLIENT_ID || "";
+    const paypalId = process.env.PAYPAL_CLIENT_ID
+      || process.env.VITE_PAYPAL_CLIENT_ID
+      || "AUgGGIucZj-6Ob_b2NyrZw9Uv7WwTaw80TPlgM8Xj-ElO6Snknk42NL2mJ7ofeG1wRAn8E-vFOQHhjWr";
+    const paypalSecret = process.env.PAYPAL_CLIENT_SECRET
+      || process.env.VITE_PAYPAL_CLIENT_SECRET
+      || "EHl6F59RBHFdAqYpb7aIQ01fFEGa0SR5vBoIOiBI3OmLCev3DVuAnNTKpkbiLhb2DQBI-8s7mX24c3ji";
     const razorpayId = process.env.RAZORPAY_KEY_ID || process.env.VITE_RAZORPAY_KEY_ID || "";
-    
+
     res.json({
       paypalClientId: paypalId,
       razorpayKeyId: razorpayId,
-      isPaypalLive: process.env.PAYPAL_MODE === "live",
-      hasPaypalSecret: !!process.env.PAYPAL_CLIENT_SECRET,
-      serverMode: process.env.NODE_ENV || "development"
+      isPaypalLive: true,
+      hasPaypalSecret: !!paypalSecret,
+      paypalMode: "live",
+      serverMode: process.env.NODE_ENV || "production"
     });
   } catch (error) {
     console.error("Config fetch error:", error);
@@ -231,20 +237,24 @@ let paypalClientInstance: any = null;
 const getPayPalClient = async () => {
   if (paypalClientInstance) return paypalClientInstance;
 
-  const clientId = process.env.PAYPAL_CLIENT_ID || process.env.VITE_PAYPAL_CLIENT_ID;
-  const clientSecret = process.env.PAYPAL_CLIENT_SECRET;
-  
+  const clientId = process.env.PAYPAL_CLIENT_ID
+    || process.env.VITE_PAYPAL_CLIENT_ID
+    || "AUgGGIucZj-6Ob_b2NyrZw9Uv7WwTaw80TPlgM8Xj-ElO6Snknk42NL2mJ7ofeG1wRAn8E-vFOQHhjWr";
+  const clientSecret = process.env.PAYPAL_CLIENT_SECRET
+    || process.env.VITE_PAYPAL_CLIENT_SECRET
+    || "EHl6F59RBHFdAqYpb7aIQ01fFEGa0SR5vBoIOiBI3OmLCev3DVuAnNTKpkbiLhb2DQBI-8s7mX24c3ji";
+
   if (!clientId || !clientSecret || clientId === "sb") {
     return null;
   }
 
   try {
     const pp = await getPayPalSDK();
-    const mode = (process.env.PAYPAL_MODE || "sandbox").toLowerCase();
+    const mode = (process.env.PAYPAL_MODE || "live").toLowerCase();
     const environment = mode === "live"
       ? new pp.core.LiveEnvironment(clientId, clientSecret)
       : new pp.core.SandboxEnvironment(clientId, clientSecret);
-      
+
     console.log(`Neural Infrastructure: PayPal initializing in ${mode} mode.`);
     paypalClientInstance = new pp.core.PayPalHttpClient(environment);
     return paypalClientInstance;
