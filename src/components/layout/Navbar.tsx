@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
-import { User, LogOut, LayoutDashboard, Settings, Crown, Briefcase, Folder } from "lucide-react";
+import { User, LogOut, LayoutDashboard, Settings, Crown, Briefcase, Folder, Building2 } from "lucide-react";
 import { auth } from "../../lib/firebase";
 import { signOut } from "firebase/auth";
 import { motion, AnimatePresence } from "motion/react";
@@ -37,6 +37,9 @@ export default function Navbar({ user, userRole }: { user: any; userRole?: strin
             </Link>
             <Link to="/projects" className="font-medium text-slate-500 dark:text-slate-400 hover:text-cyan-500 dark:hover:text-white transition-colors flex items-center gap-2">
               <Folder className="w-4 h-4" /> <span className="hidden sm:inline">Projects</span>
+            </Link>
+            <Link to="/company" className="font-medium text-slate-500 dark:text-slate-400 hover:text-cyan-500 dark:hover:text-white transition-colors flex items-center gap-2">
+              <Building2 className="w-4 h-4" /> <span className="hidden sm:inline">Company</span>
             </Link>
             {userRole === "admin" && (
               <Link to="/admin" className="font-medium text-slate-500 dark:text-slate-400 hover:text-cyan-500 dark:hover:text-white transition-colors flex items-center gap-2">

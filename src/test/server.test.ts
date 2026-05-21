@@ -86,4 +86,72 @@ describe("Server endpoints", () => {
       expect(res.status).toBeLessThan(500);
     });
   });
+
+  describe("POST /api/email/send", () => {
+    it("returns 400 when fields are missing", async () => {
+      const res = await request(app)
+        .post("/api/email/send")
+        .send({ to: "test@example.com" });
+      expect(res.status).toBe(400);
+      expect(res.body.error).toBeTruthy();
+    });
+
+    it("returns 503 when SENDGRID_API_KEY is not set", async () => {
+      const res = await request(app)
+        .post("/api/email/send")
+        .send({ to: "test@example.com", subject: "Test", body: "Hello" });
+      if (!process.env.SENDGRID_API_KEY) {
+        expect(res.status).toBe(503);
+        expect(res.body.error).toBe("SENDGRID_NOT_CONFIGURED");
+      }
+    });
+  });
+
+  describe("POST /api/tasks/execute", () => {
+    it("returns 503 when GEMINI_API_KEY is not set", async () => {
+      const res = await request(app)
+        .post("/api/tasks/execute")
+        .send({});
+      if (!process.env.GEMINI_API_KEY) {
+        expect(res.status).toBe(503);
+        expect(res.body.error).toBe("AI_SERVICE_UNAVAILABLE");
+      }
+    });
+  });
+
+  describe("POST /api/deploy/github", () => {
+    it("returns 400 when repo is missing", async () => {
+      const res = await request(app)
+        .post("/api/deploy/github")
+        .send({});
+      if (!process.env.GITHUB_TOKEN) {
+        expect(res.status).toBe(503);
+      } else {
+        expect(res.status).toBe(400);
+        expect(res.body.error).toBeTruthy();
+      }
+    });
+
+    it("returns 503 when GITHUB_TOKEN is not set", async () => {
+      const res = await request(app)
+        .post("/api/deploy/github")
+        .send({ repo: "user/repo" });
+      if (!process.env.GITHUB_TOKEN) {
+        expect(res.status).toBe(503);
+        expect(res.body.error).toBe("GITHUB_TOKEN_NOT_CONFIGURED");
+      }
+    });
+  });
+
+  describe("POST /api/deploy/vercel", () => {
+    it("returns 503 when VERCEL_TOKEN is not set", async () => {
+      const res = await request(app)
+        .post("/api/deploy/vercel")
+        .send({ repo: "my-project" });
+      if (!process.env.VERCEL_TOKEN) {
+        expect(res.status).toBe(503);
+        expect(res.body.error).toBe("VERCEL_TOKEN_NOT_CONFIGURED");
+      }
+    });
+  });
 });

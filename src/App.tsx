@@ -16,6 +16,7 @@ import RefundPolicy from "./pages/RefundPolicy";
 import ShippingPolicy from "./pages/ShippingPolicy";
 import ContactUs from "./pages/ContactUs";
 import AboutUs from "./pages/AboutUs";
+import Company from "./pages/Company";
 import Navbar from "./components/layout/Navbar";
 import ErrorBoundary from "./components/ui/ErrorBoundary";
 import { ThemeProvider } from "./lib/ThemeContext";
@@ -66,6 +67,7 @@ export default function App() {
           <Route path="/workspace/:projectId" element={user ? <Workspace /> : <Navigate to="/auth" />} />
           <Route path="/admin" element={user && userRole === "admin" ? <AdminPanel /> : <Navigate to="/dashboard" />} />
           <Route path="/billing" element={user ? <Billing /> : <Navigate to="/auth" />} />
+          <Route path="/company" element={user ? <Company /> : <Navigate to="/auth" />} />
           <Route path="/projects" element={user ? <Projects /> : <Navigate to="/auth" />} />
           <Route path="/terms" element={<TermsOfService />} />
           <Route path="/privacy" element={<PrivacyPolicy />} />

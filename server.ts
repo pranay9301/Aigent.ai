@@ -408,6 +408,236 @@ app.post("/api/razorpay/verify-payment", async (req, res) => {
   }
 });
 
+// --- Email Endpoint (SendGrid) ---
+app.post("/api/email/send", async (req, res) => {
+  const { to, subject, body } = req.body;
+  if (!to || !subject || !body) {
+    return res.status(400).json({ error: "Missing required fields: to, subject, body" });
+  }
+
+  const sendgridKey = process.env.SENDGRID_API_KEY;
+  if (!sendgridKey) {
+    return res.status(503).json({ error: "SENDGRID_NOT_CONFIGURED" });
+  }
+
+  try {
+    const sgMail = (await import("@sendgrid/mail")).default;
+    sgMail.setApiKey(sendgridKey);
+    await sgMail.send({
+      to,
+      from: process.env.SENDGRID_FROM_EMAIL || "noreply@aigent.ai",
+      subject,
+      text: body,
+      html: `<div style="font-family: sans-serif; line-height: 1.6;">${body.replace(/\n/g, "<br>")}</div>`,
+    });
+    res.json({ status: "ok", message: "Email sent" });
+  } catch (err: any) {
+    console.error("SendGrid error:", err);
+    res.status(500).json({ error: "EMAIL_SEND_FAILED", details: err.message });
+  }
+});
+
+// --- Task Execution Endpoint (Autonomous Agents) ---
+app.post("/api/tasks/execute", async (req, res) => {
+  const ai = await getAI();
+  if (!ai) {
+    return res.status(503).json({ error: "AI_SERVICE_UNAVAILABLE" });
+  }
+
+  try {
+    const adminSdk = await import("firebase-admin");
+    const db = adminSdk.apps.length ? adminSdk.firestore() : null;
+    if (!db) {
+      return res.status(503).json({ error: "FIRESTORE_NOT_AVAILABLE" });
+    }
+
+    // Fetch all pending tasks
+    const companiesSnap = await db.collection("companies").get();
+    let executed = 0;
+
+    for (const companyDoc of companiesSnap.docs) {
+      const tasksSnap = await companyDoc.ref.collection("tasks").where("status", "==", "pending").get();
+
+      for (const taskDoc of tasksSnap.docs) {
+        const task = taskDoc.data();
+        await taskDoc.ref.update({ status: "running" });
+
+        try {
+          const visionContext = companyDoc.data().vision ? `Company Vision: ${companyDoc.data().vision}\n` : "";
+          const roles: Record<string, string> = {
+            developer: "You are the Aigent Developer. Generate code or technical solutions.",
+            designer: "You are the Aigent Designer. Focus on UI/UX improvements.",
+            pm: "You are the Aigent Project Manager. Plan and organize tasks.",
+            market: "You are the Aigent Marketing Manager. Create marketing content.",
+            security: "You are the Aigent Security Officer. Audit for vulnerabilities.",
+            finance: "You are the Aigent Finance Manager. Analyze business metrics.",
+          };
+
+          const systemPrompt = roles[task.agent] || roles.developer;
+          const result = await ai.models.generateContent({
+            model: "gemini-3-flash-preview",
+            contents: [{ role: "user", parts: [{ text: visionContext + task.prompt }] }],
+            config: { systemInstruction: systemPrompt },
+          });
+
+          const text = result.text || "No response generated";
+          await taskDoc.ref.update({
+            status: "completed",
+            result: text,
+            lastRunAt: new Date().toISOString(),
+          });
+          executed++;
+        } catch (err) {
+          await taskDoc.ref.update({ status: "failed", lastRunAt: new Date().toISOString() });
+        }
+      }
+    }
+
+    res.json({ status: "ok", executed });
+  } catch (err: any) {
+    console.error("Task execution error:", err);
+    res.status(500).json({ error: "TASK_EXECUTION_FAILED" });
+  }
+});
+
+// --- Deploy to GitHub ---
+app.post("/api/deploy/github", async (req, res) => {
+  const { repo, companyId } = req.body;
+  const token = process.env.GITHUB_TOKEN;
+
+  if (!token) {
+    return res.status(503).json({ error: "GITHUB_TOKEN_NOT_CONFIGURED" });
+  }
+
+  if (!repo) {
+    return res.status(400).json({ error: "Repository name required" });
+  }
+
+  try {
+    // Fetch company's first project files
+    const adminSdk = await import("firebase-admin");
+    const db = adminSdk.apps.length ? adminSdk.firestore() : null;
+    if (!db) return res.status(503).json({ error: "FIRESTORE_NOT_AVAILABLE" });
+
+    let files: Record<string, string> = {};
+    if (companyId) {
+      const projectsSnap = await db.collection("projects")
+        .where("ownerId", "==", companyId)
+        .limit(1)
+        .get();
+      if (!projectsSnap.empty) {
+        files = projectsSnap.docs[0].data().files || {};
+      }
+    }
+
+    if (Object.keys(files).length === 0) {
+      return res.status(400).json({ error: "No files found to deploy" });
+    }
+
+    // Push files to GitHub via API
+    const headers = {
+      Authorization: `Bearer ${token}`,
+      Accept: "application/vnd.github.v3+json",
+      "Content-Type": "application/json",
+    };
+
+    for (const [path, content] of Object.entries(files)) {
+      const apiUrl = `https://api.github.com/repos/${repo}/contents/${path}`;
+      // Check if file exists to get SHA for update
+      let sha: string | undefined;
+      try {
+        const existing = await fetch(apiUrl, { headers });
+        if (existing.ok) {
+          const data = await existing.json();
+          sha = data.sha;
+        }
+      } catch {}
+
+      await fetch(apiUrl, {
+        method: "PUT",
+        headers,
+        body: JSON.stringify({
+          message: `feat: deploy ${path}`,
+          content: Buffer.from(content).toString("base64"),
+          ...(sha ? { sha } : {}),
+        }),
+      });
+    }
+
+    // Log deploy
+    if (companyId) {
+      await db.collection("companies").doc(companyId).collection("deploys").add({
+        target: "github",
+        repo,
+        status: "success",
+        url: `https://github.com/${repo}`,
+        fileCount: Object.keys(files).length,
+        createdAt: new Date().toISOString(),
+      });
+    }
+
+    res.json({ status: "ok", url: `https://github.com/${repo}`, fileCount: Object.keys(files).length });
+  } catch (err: any) {
+    console.error("GitHub deploy error:", err);
+    res.status(500).json({ error: "DEPLOY_FAILED", details: err.message });
+  }
+});
+
+// --- Deploy to Vercel ---
+app.post("/api/deploy/vercel", async (req, res) => {
+  const { repo, companyId } = req.body;
+  const token = process.env.VERCEL_TOKEN;
+
+  if (!token) {
+    return res.status(503).json({ error: "VERCEL_TOKEN_NOT_CONFIGURED" });
+  }
+
+  try {
+    const headers = {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    };
+
+    // Create a new Vercel project deployment
+    const deployRes = await fetch("https://api.vercel.com/v13/deployments", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        name: repo || `aigent-project-${Date.now()}`,
+        gitSource: { type: "github", repo, ref: "main" },
+      }),
+    });
+
+    if (!deployRes.ok) {
+      const err = await deployRes.json();
+      return res.status(400).json({ error: "VERCEL_DEPLOY_FAILED", details: err });
+    }
+
+    const deployData = await deployRes.json();
+    const url = `https://${deployData.url}`;
+
+    // Log deploy
+    if (companyId) {
+      const adminSdk = await import("firebase-admin");
+      const db = adminSdk.apps.length ? adminSdk.firestore() : null;
+      if (db) {
+        await db.collection("companies").doc(companyId).collection("deploys").add({
+          target: "vercel",
+          repo,
+          status: "success",
+          url,
+          createdAt: new Date().toISOString(),
+        });
+      }
+    }
+
+    res.json({ status: "ok", url, deploymentId: deployData.id });
+  } catch (err: any) {
+    console.error("Vercel deploy error:", err);
+    res.status(500).json({ error: "DEPLOY_FAILED", details: err.message });
+  }
+});
+
 // Vite middleware for development
 async function setupVite() {
   if (process.env.NODE_ENV !== "production") {

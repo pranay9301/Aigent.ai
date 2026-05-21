@@ -68,5 +68,44 @@ service cloud.firestore {
         allow update, delete: if isSignedIn() && (isOwner(get(/databases/$(database)/documents/projects/$(projectId)).data.ownerId) || isAdmin());
       }
     }
+
+    // Companies Collection
+    match /companies/{companyId} {
+      allow get, list: if isSignedIn() && (isOwner(resource.data.ownerId) || isAdmin());
+
+      function isValidCompany(data) {
+        return data.keys().hasAll(['name', 'ownerId']) &&
+               data.ownerId == request.auth.uid &&
+               data.name is string && data.name.size() <= 100;
+      }
+
+      allow create: if isSignedIn() && isValidCompany(request.resource.data);
+      allow update: if isSignedIn() && (isOwner(resource.data.ownerId) || isAdmin());
+      allow delete: if isSignedIn() && (isOwner(resource.data.ownerId) || isAdmin());
+
+      // Tasks subcollection
+      match /tasks/{taskId} {
+        allow get, list: if isSignedIn() && isOwner(get(/databases/$(database)/documents/companies/$(companyId)).data.ownerId);
+        allow create, update, delete: if isSignedIn() && isOwner(get(/databases/$(database)/documents/companies/$(companyId)).data.ownerId);
+      }
+
+      // Social posts subcollection
+      match /socialPosts/{postId} {
+        allow get, list: if isSignedIn() && isOwner(get(/databases/$(database)/documents/companies/$(companyId)).data.ownerId);
+        allow create, update, delete: if isSignedIn() && isOwner(get(/databases/$(database)/documents/companies/$(companyId)).data.ownerId);
+      }
+
+      // Deploys subcollection
+      match /deploys/{deployId} {
+        allow get, list: if isSignedIn() && isOwner(get(/databases/$(database)/documents/companies/$(companyId)).data.ownerId);
+        allow create, update, delete: if isSignedIn() && isOwner(get(/databases/$(database)/documents/companies/$(companyId)).data.ownerId);
+      }
+
+      // Members subcollection
+      match /members/{memberId} {
+        allow get, list: if isSignedIn() && isOwner(get(/databases/$(database)/documents/companies/$(companyId)).data.ownerId);
+        allow create, update, delete: if isSignedIn() && isOwner(get(/databases/$(database)/documents/companies/$(companyId)).data.ownerId);
+      }
+    }
   }
 }
