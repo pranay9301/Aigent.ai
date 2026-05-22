@@ -1,129 +1,129 @@
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    
-    // Global Deny
-    match /{document=**} {
-      allow read, write: if false;
-    }
-
-    // Helper functions
-    function isSignedIn() {
-      return request.auth != null;
-    }
-    
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-
-    function isAdmin() {
-      return isSignedIn() && (
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin"
-      );
-    }
-
-    function isValidId(id) {
-      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
-    }
-
-    // Users Collection
-    match /users/{userId} {
-      allow get: if isSignedIn() && (isOwner(userId) || isAdmin());
-      allow list: if isAdmin();
-
-      function isValidUser(data) {
-        return data.keys().hasAll(['uid', 'email', 'role', 'subscription', 'createdAt']) &&
-               data.uid == request.auth.uid &&
-               data.email is string &&
-               data.role in ['user', 'admin'] &&
-               data.subscription in ['free', 'pro', 'premium', 'enterprise'];
+  rules_version = '2';
+  service cloud.firestore {                                                                                                                                         
+    match /databases/{database}/documents {
+                                                                                                                                                                    
+      // Global Deny                                        
+      match /{document=**} {
+        allow read, write: if false;
       }
 
-      allow create: if isSignedIn() && isOwner(userId) && isValidUser(request.resource.data);
-      allow update: if isSignedIn() && (isOwner(userId) || isAdmin()) &&
-                    request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'subscription', 'role']);
-
-      // Transactions subcollection (billing history)
-      match /transactions/{transactionId} {
-        allow get, list: if isSignedIn() && (isOwner(userId) || isAdmin());
-        allow create, update, delete: if false; // Server-side only via Admin SDK
-      }
-    }
-
-    // Audit Logs Collection (server writes, admin reads)
-    match /auditLogs/{logId} {
-      allow get, list: if isSignedIn() && isAdmin();
-      allow create, update, delete: if false; // Server-side only via Admin SDK
-    }
-
-    // Contacts Collection (server writes only)
-    match /contacts/{contactId} {
-      allow get, list: if isSignedIn() && isAdmin();
-      allow create, update, delete: if false; // Server-side only via Admin SDK
-    }
-
-    // Projects Collection
-    match /projects/{projectId} {
-      allow get: if isSignedIn() && (isOwner(resource.data.ownerId) || isAdmin());
-      allow list: if isSignedIn() && (request.query.limit <= 100); // Clients MUST query by ownerId
-
-      function isValidProject(data) {
-        return data.keys().hasAll(['id', 'name', 'ownerId', 'status', 'createdAt', 'updatedAt']) &&
-               data.ownerId == request.auth.uid &&
-               data.name is string && data.name.size() <= 100 &&
-               data.status in ['active', 'archived'];
+      // Helper functions
+      function isSignedIn() {
+        return request.auth != null;
       }
 
-      allow create: if isSignedIn() && isValidProject(request.resource.data);
-      allow update: if isSignedIn() && (isOwner(resource.data.ownerId) || isAdmin()) &&
-                    isValidProject(request.resource.data);
-      allow delete: if isSignedIn() && (isOwner(resource.data.ownerId) || isAdmin());
-
-      // Approvals subcollection for high-stakes actions
-      match /approvals/{approvalId} {
-        allow get, list: if isSignedIn() && (isOwner(get(/databases/$(database)/documents/projects/$(projectId)).data.ownerId) || isAdmin());
-        allow create: if isSignedIn() && (isOwner(get(/databases/$(database)/documents/projects/$(projectId)).data.ownerId) || isAdmin());
-        allow update, delete: if isSignedIn() && (isOwner(get(/databases/$(database)/documents/projects/$(projectId)).data.ownerId) || isAdmin());
-      }
-    }
-
-    // Companies Collection
-    match /companies/{companyId} {
-      allow get, list: if isSignedIn() && (isOwner(resource.data.ownerId) || isAdmin());
-
-      function isValidCompany(data) {
-        return data.keys().hasAll(['name', 'ownerId']) &&
-               data.ownerId == request.auth.uid &&
-               data.name is string && data.name.size() <= 100;
+      function isOwner(userId) {
+        return isSignedIn() && request.auth.uid == userId;
       }
 
-      allow create: if isSignedIn() && isValidCompany(request.resource.data);
-      allow update: if isSignedIn() && (isOwner(resource.data.ownerId) || isAdmin());
-      allow delete: if isSignedIn() && (isOwner(resource.data.ownerId) || isAdmin());
-
-      // Tasks subcollection
-      match /tasks/{taskId} {
-        allow get, list: if isSignedIn() && isOwner(get(/databases/$(database)/documents/companies/$(companyId)).data.ownerId);
-        allow create, update, delete: if isSignedIn() && isOwner(get(/databases/$(database)/documents/companies/$(companyId)).data.ownerId);
+      function isAdmin() {
+        return isSignedIn() && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin"
+        );
       }
 
-      // Social posts subcollection
-      match /socialPosts/{postId} {
-        allow get, list: if isSignedIn() && isOwner(get(/databases/$(database)/documents/companies/$(companyId)).data.ownerId);
-        allow create, update, delete: if isSignedIn() && isOwner(get(/databases/$(database)/documents/companies/$(companyId)).data.ownerId);
+      function isValidId(id) {
+        return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
       }
 
-      // Deploys subcollection
-      match /deploys/{deployId} {
-        allow get, list: if isSignedIn() && isOwner(get(/databases/$(database)/documents/companies/$(companyId)).data.ownerId);
-        allow create, update, delete: if isSignedIn() && isOwner(get(/databases/$(database)/documents/companies/$(companyId)).data.ownerId);
+      // Users Collection
+      match /users/{userId} {
+        allow get: if isSignedIn() && (isOwner(userId) || isAdmin());
+        allow list: if isAdmin();
+
+        function isValidUser(data) {
+          return data.keys().hasAll(['uid', 'email', 'role', 'subscription', 'createdAt']) &&
+                 data.uid == request.auth.uid &&
+                 data.email is string &&
+                 data.role in ['user', 'admin'] &&
+                 data.subscription in ['free', 'pro', 'premium', 'enterprise'];
+        }
+
+        allow create: if isSignedIn() && isOwner(userId) && isValidUser(request.resource.data);
+        allow update: if isSignedIn() && (isOwner(userId) || isAdmin()) &&
+                      request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'subscription', 'role']);
+
+        // Transactions subcollection (billing history)
+        match /transactions/{transactionId} {
+          allow get, list: if isSignedIn() && (isOwner(userId) || isAdmin());
+          allow create, update, delete: if false;
+        }
       }
 
-      // Members subcollection
-      match /members/{memberId} {
-        allow get, list: if isSignedIn() && isOwner(get(/databases/$(database)/documents/companies/$(companyId)).data.ownerId);
-        allow create, update, delete: if isSignedIn() && isOwner(get(/databases/$(database)/documents/companies/$(companyId)).data.ownerId);
+      // Audit Logs Collection (server writes, admin reads)
+      match /auditLogs/{logId} {
+        allow get, list: if isSignedIn() && isAdmin();
+        allow create, update, delete: if false;
+      }
+
+      // Contacts Collection (server writes only)
+      match /contacts/{contactId} {
+        allow get, list: if isSignedIn() && isAdmin();
+        allow create, update, delete: if false;
+      }
+
+      // Projects Collection
+      match /projects/{projectId} {
+        allow get: if isSignedIn() && (isOwner(resource.data.ownerId) || isAdmin());
+        allow list: if isSignedIn() && (request.query.limit <= 100);
+
+        function isValidProject(data) {
+          return data.keys().hasAll(['id', 'name', 'ownerId', 'status', 'createdAt', 'updatedAt']) &&
+                 data.ownerId == request.auth.uid &&
+                 data.name is string && data.name.size() <= 100 &&
+                 data.status in ['active', 'archived'];
+        }
+
+        allow create: if isSignedIn() && isValidProject(request.resource.data);
+        allow update: if isSignedIn() && (isOwner(resource.data.ownerId) || isAdmin()) &&
+                      isValidProject(request.resource.data);
+        allow delete: if isSignedIn() && (isOwner(resource.data.ownerId) || isAdmin());
+
+        // Approvals subcollection for high-stakes actions
+        match /approvals/{approvalId} {
+          allow get, list: if isSignedIn() && (isOwner(get(/databases/$(database)/documents/projects/$(projectId)).data.ownerId) || isAdmin());
+          allow create: if isSignedIn() && (isOwner(get(/databases/$(database)/documents/projects/$(projectId)).data.ownerId) || isAdmin());
+          allow update, delete: if isSignedIn() && (isOwner(get(/databases/$(database)/documents/projects/$(projectId)).data.ownerId) || isAdmin());
+        }
+      }
+
+      // Companies Collection
+      match /companies/{companyId} {
+        allow get, list: if isSignedIn() && (isOwner(resource.data.ownerId) || isAdmin());
+
+        function isValidCompany(data) {
+          return data.keys().hasAll(['name', 'ownerId']) &&
+                 data.ownerId == request.auth.uid &&
+                 data.name is string && data.name.size() <= 100;
+        }
+
+        allow create: if isSignedIn() && isValidCompany(request.resource.data);
+        allow update: if isSignedIn() && (isOwner(resource.data.ownerId) || isAdmin());
+        allow delete: if isSignedIn() && (isOwner(resource.data.ownerId) || isAdmin());
+
+        // Tasks subcollection
+        match /tasks/{taskId} {
+          allow get, list: if isSignedIn() && isOwner(get(/databases/$(database)/documents/companies/$(companyId)).data.ownerId);
+          allow create, update, delete: if isSignedIn() && isOwner(get(/databases/$(database)/documents/companies/$(companyId)).data.ownerId);
+        }
+
+        // Social posts subcollection
+        match /socialPosts/{postId} {
+          allow get, list: if isSignedIn() && isOwner(get(/databases/$(database)/documents/companies/$(companyId)).data.ownerId);
+          allow create, update, delete: if isSignedIn() && isOwner(get(/databases/$(database)/documents/companies/$(companyId)).data.ownerId);
+        }
+
+        // Deploys subcollection
+        match /deploys/{deployId} {
+          allow get, list: if isSignedIn() && isOwner(get(/databases/$(database)/documents/companies/$(companyId)).data.ownerId);
+          allow create, update, delete: if isSignedIn() && isOwner(get(/databases/$(database)/documents/companies/$(companyId)).data.ownerId);
+        }
+
+        // Members subcollection
+        match /members/{memberId} {
+          allow get, list: if isSignedIn() && isOwner(get(/databases/$(database)/documents/companies/$(companyId)).data.ownerId);
+          allow create, update, delete: if isSignedIn() && isOwner(get(/databases/$(database)/documents/companies/$(companyId)).data.ownerId);
+        }
       }
     }
   }
-}
