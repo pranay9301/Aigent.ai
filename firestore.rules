@@ -30,7 +30,7 @@ service cloud.firestore {
     match /users/{userId} {
       allow get: if isSignedIn() && (isOwner(userId) || isAdmin());
       allow list: if isAdmin();
-      
+
       function isValidUser(data) {
         return data.keys().hasAll(['uid', 'email', 'role', 'subscription', 'createdAt']) &&
                data.uid == request.auth.uid &&
@@ -40,8 +40,26 @@ service cloud.firestore {
       }
 
       allow create: if isSignedIn() && isOwner(userId) && isValidUser(request.resource.data);
-      allow update: if isSignedIn() && (isOwner(userId) || isAdmin()) && 
+      allow update: if isSignedIn() && (isOwner(userId) || isAdmin()) &&
                     request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'subscription', 'role']);
+
+      // Transactions subcollection (billing history)
+      match /transactions/{transactionId} {
+        allow get, list: if isSignedIn() && (isOwner(userId) || isAdmin());
+        allow create, update, delete: if false; // Server-side only via Admin SDK
+      }
+    }
+
+    // Audit Logs Collection (server writes, admin reads)
+    match /auditLogs/{logId} {
+      allow get, list: if isSignedIn() && isAdmin();
+      allow create, update, delete: if false; // Server-side only via Admin SDK
+    }
+
+    // Contacts Collection (server writes only)
+    match /contacts/{contactId} {
+      allow get, list: if isSignedIn() && isAdmin();
+      allow create, update, delete: if false; // Server-side only via Admin SDK
     }
 
     // Projects Collection
