@@ -1,10 +1,10 @@
 {
-  "projectId": "imagined-chalice-k8gvj",
-  "appId": "1:750298980268:web:c35a3869570b4ca3932409",
-  "apiKey": "AIzaSyCoeghTQAcq0wPHU1HXzwsLpKEKZHp0o80",
-  "authDomain": "imagined-chalice-k8gvj.firebaseapp.com",
-  "firestoreDatabaseId": "ai-studio-748fa465-832f-4f51-920e-94cf4cd9b610",
-  "storageBucket": "imagined-chalice-k8gvj.firebasestorage.app",
-  "messagingSenderId": "750298980268",
+  "projectId": "microsaas-d9323",
+  "appId": "1:210149898782:web:195a733cd5a7cdbfa74c0f",
+  "apiKey": "AIzaSyCUsZMqo0IC3qeruhTydVad3eSYmMQDFqI",
+  "authDomain": "microsaas-d9323.firebaseapp.com",
+  "firestoreDatabaseId": "(default)",
+  "storageBucket": "microsaas-d9323.firebasestorage.app",
+  "messagingSenderId": "210149898782",
   "measurementId": ""
 }
