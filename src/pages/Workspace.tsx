@@ -70,6 +70,7 @@ export default function Workspace() {
   const [isAiTyping, setIsAiTyping] = useState(false);
   const [viewMode, setViewMode] = useState<"code" | "preview" | "split">("split");
   const [terminalOpen, setTerminalOpen] = useState(false);
+  const [terminalLines, setTerminalLines] = useState<{tag: string; color: string; text: string}[]>([]);
   const [activeAgent, setActiveAgent] = useState("pm");
   const [isNewFileModalOpen, setIsNewFileModalOpen] = useState(false);
   const [newFileName, setNewFileName] = useState("");
@@ -149,12 +150,51 @@ export default function Workspace() {
     }
   };
 
-  const handleDeploy = () => {
+  const handleDeploy = async () => {
     setTerminalOpen(true);
-    addNotification("INITIALIZING_DEPLOY_SEQUENCE...");
-    setTimeout(() => {
-      addNotification("DEPLOY_COMPLETE: Instance reachable globally.");
-    }, 2000);
+    setTerminalLines([
+      { tag: "DevOps", color: "text-emerald-500", text: "Initializing deploy sequence..." },
+      { tag: "System", color: "text-cyan-600 dark:text-cyan-400", text: `Project: ${project?.name || "unknown"} | Files: ${Object.keys(files).length}` },
+    ]);
+    try {
+      const res = await fetch("/api/deploy/github", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          repo: project?.githubRepo || "",
+          companyId: project?.ownerId || "",
+        }),
+      });
+      const data = await res.json();
+      if (data.status === "ok") {
+        setTerminalLines(prev => [...prev,
+          { tag: "Git", color: "text-emerald-500", text: "Pushed to GitHub successfully." },
+          { tag: "Vercel", color: "text-cyan-600 dark:text-cyan-400", text: `Deployment URL: ${data.url || "building..."}` },
+          { tag: "Deploy", color: "text-emerald-500", text: "DEPLOY_COMPLETE — Instance live." },
+        ]);
+        addNotification(`DEPLOY_COMPLETE: ${data.url || "Instance reachable globally."}`);
+      } else if (data.error === "GITHUB_TOKEN_NOT_CONFIGURED") {
+        setTerminalLines(prev => [...prev,
+          { tag: "Error", color: "text-red-500", text: "GitHub token not configured on server." },
+        ]);
+        addNotification("DEPLOY_FAILED: GitHub token not configured on server.");
+      } else if (data.error === "No files found to deploy") {
+        setTerminalLines(prev => [...prev,
+          { tag: "Error", color: "text-red-500", text: "No project files found to deploy." },
+        ]);
+        addNotification("DEPLOY_FAILED: No project files to deploy.");
+      } else {
+        setTerminalLines(prev => [...prev,
+          { tag: "Error", color: "text-red-500", text: `Deploy failed: ${data.error || "Unknown error"}` },
+        ]);
+        addNotification(`DEPLOY_FAILED: ${data.error || "Unknown error"}`);
+      }
+    } catch {
+      setTerminalLines(prev => [...prev,
+        { tag: "Error", color: "text-red-500", text: "Network error. Deploy aborted." },
+      ]);
+      addNotification("DEPLOY_FAILED: Network error. Try again.");
+    }
   };
 
   const handleDownload = () => {
@@ -404,9 +444,20 @@ export default function Workspace() {
                    <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">System_Console_v03</span>
                    <Terminal className="w-3 h-3 text-slate-400 dark:text-slate-600" />
                 </div>
-                <div className="flex gap-3"><span className="text-emerald-500 font-bold uppercase">[DevOps]</span> <span className="text-slate-500 dark:text-slate-400">Environment initialized. Node_ID: AGT-982</span></div>
-                <div className="flex gap-3"><span className="text-cyan-600 dark:text-cyan-400 font-bold uppercase">[IDE]</span> <span className="text-slate-500 dark:text-slate-400">Listening for neural file changes...</span></div>
-                <div className="flex gap-3 animate-pulse"><span className="text-slate-300 dark:text-slate-700">&gt;</span> <span className="text-slate-800 dark:text-slate-200">await Aigent.execute("optimize-bundle")</span></div>
+                {terminalLines.length === 0 ? (
+                  <>
+                    <div className="flex gap-3"><span className="text-emerald-500 font-bold uppercase">[DevOps]</span> <span className="text-slate-500 dark:text-slate-400">Environment initialized. Node_ID: AGT-982</span></div>
+                    <div className="flex gap-3"><span className="text-cyan-600 dark:text-cyan-400 font-bold uppercase">[IDE]</span> <span className="text-slate-500 dark:text-slate-400">Listening for neural file changes...</span></div>
+                    <div className="flex gap-3 animate-pulse"><span className="text-slate-300 dark:text-slate-700">&gt;</span> <span className="text-slate-800 dark:text-slate-200">await Aigent.execute("optimize-bundle")</span></div>
+                  </>
+                ) : (
+                  terminalLines.map((line, i) => (
+                    <div key={i} className="flex gap-3">
+                      <span className={`${line.color} font-bold uppercase`}>[{line.tag}]</span>
+                      <span className="text-slate-500 dark:text-slate-400">{line.text}</span>
+                    </div>
+                  ))
+                )}
               </motion.div>
             )}
           </AnimatePresence>

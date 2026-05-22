@@ -8,13 +8,66 @@ import { persistCacheEntry } from "./src/lib/server-cache";
 
 dotenv.config();
 
+// --- Rate Limiting ---
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+function rateLimit(windowMs: number, maxRequests: number) {
+  return (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const key = req.ip || req.socket.remoteAddress || "unknown";
+    const now = Date.now();
+    const entry = rateLimitMap.get(key);
+    if (!entry || now > entry.resetAt) {
+      rateLimitMap.set(key, { count: 1, resetAt: now + windowMs });
+      return next();
+    }
+    entry.count++;
+    if (entry.count > maxRequests) {
+      return res.status(429).json({ error: "RATE_LIMIT_EXCEEDED", retryAfter: Math.ceil((entry.resetAt - now) / 1000) });
+    }
+    next();
+  };
+}
+
+// Apply rate limiting: 60 requests per minute per IP
+const limiter = rateLimit(60_000, 60);
+
 // Wire Firestore cache persistence
 setPersistFn(persistCacheEntry);
+
+// Audit log helper
+async function recordAuditLog(action: string, userId: string, details: string) {
+  try {
+    const adminSdk = await import("firebase-admin");
+    if (!adminSdk.apps.length) {
+      const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY
+        ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY)
+        : undefined;
+      if (serviceAccount || process.env.FIREBASE_PROJECT_ID) {
+        adminSdk.initializeApp({
+          credential: serviceAccount
+            ? adminSdk.credential.cert(serviceAccount)
+            : adminSdk.credential.applicationDefault(),
+        });
+      }
+    }
+    const db = adminSdk.apps.length ? adminSdk.firestore() : null;
+    if (db) {
+      await db.collection("auditLogs").add({
+        action,
+        userId,
+        details,
+        createdAt: new Date().toISOString(),
+      });
+    }
+  } catch (err) {
+    console.error("Audit log failed:", err);
+  }
+}
 
 const app = express();
 const PORT = 3000;
 
 app.use(express.json());
+app.use(limiter);
 
 // Dynamic Import Cache
 let GoogleGenAI: any = null;
@@ -164,10 +217,42 @@ app.post("/api/contact", async (req, res) => {
   if (!name || !email || !subject || !message) {
     return res.status(400).json({ error: "All fields are required" });
   }
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return res.status(400).json({ error: "Invalid email format" });
+  }
+
   try {
-    console.log("Contact Form Submission:", { name, email, subject, message, timestamp: new Date().toISOString() });
+    const adminSdk = await import("firebase-admin");
+    if (!adminSdk.apps.length) {
+      const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY
+        ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY)
+        : undefined;
+      if (serviceAccount || process.env.FIREBASE_PROJECT_ID) {
+        adminSdk.initializeApp({
+          credential: serviceAccount
+            ? adminSdk.credential.cert(serviceAccount)
+            : adminSdk.credential.applicationDefault(),
+        });
+      }
+    }
+    const db = adminSdk.apps.length ? adminSdk.firestore() : null;
+    if (db) {
+      await db.collection("contacts").add({
+        name,
+        email,
+        subject,
+        message,
+        createdAt: new Date().toISOString(),
+      });
+    } else {
+      console.log("Contact Form Submission (no Firestore):", { name, email, subject, message });
+    }
+    recordAuditLog("contact_submission", email, `From ${name}: ${subject}`);
     res.json({ status: "ok", message: "Message received" });
   } catch (error: any) {
+    console.error("Contact form error:", error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -310,7 +395,7 @@ app.post("/api/paypal/capture-order", async (req, res) => {
     return res.status(503).json({ error: "PAYPAL_NOT_CONFIGURED" });
   }
 
-  const { orderId } = req.body;
+  const { orderId, userId, planName } = req.body;
   const pp = await getPayPalSDK();
 
   const request = new pp.orders.OrdersCaptureRequest(orderId);
@@ -318,7 +403,49 @@ app.post("/api/paypal/capture-order", async (req, res) => {
 
   try {
     const capture = await client.execute(request);
-    // In a real app, you would update the user's subscription status in Firestore here
+
+    // Persist subscription to Firestore
+    if (userId && capture.result.status === "COMPLETED") {
+      try {
+        const adminSdk = await import("firebase-admin");
+        if (!adminSdk.apps.length) {
+          const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY
+            ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY)
+            : undefined;
+          if (serviceAccount || process.env.FIREBASE_PROJECT_ID) {
+            adminSdk.initializeApp({
+              credential: serviceAccount
+                ? adminSdk.credential.cert(serviceAccount)
+                : adminSdk.credential.applicationDefault(),
+            });
+          }
+        }
+        const db = adminSdk.apps.length ? adminSdk.firestore() : null;
+        if (db) {
+          await db.collection("users").doc(userId).set({
+            subscription: (planName || "scale").toLowerCase(),
+            subscriptionUpdatedAt: new Date().toISOString(),
+            paymentMethod: "paypal",
+            lastOrderId: orderId,
+          }, { merge: true });
+
+          // Record transaction for billing history
+          const amount = capture.result.purchase_units?.[0]?.payments?.captures?.[0]?.amount?.value || "0";
+          await db.collection("users").doc(userId).collection("transactions").add({
+            amount,
+            plan: planName || "Scale",
+            status: "completed",
+            paymentMethod: "paypal",
+            orderId,
+            createdAt: new Date().toISOString(),
+          });
+        }
+      } catch (firestoreErr) {
+        console.error("Failed to persist PayPal subscription:", firestoreErr);
+      }
+      recordAuditLog("payment_completed", userId, `PayPal ${planName || "subscription"} — Order ${orderId}`);
+    }
+
     res.json({ status: capture.result.status, details: capture.result });
   } catch (err: any) {
     console.error("PayPal Capture Error:", err);
@@ -387,7 +514,7 @@ app.post("/api/razorpay/webhook", (req, res) => {
 });
 
 app.post("/api/razorpay/verify-payment", async (req, res) => {
-  const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+  const { razorpay_order_id, razorpay_payment_id, razorpay_signature, userId, planName } = req.body;
   const key_secret = process.env.RAZORPAY_KEY_SECRET || process.env.VITE_RAZORPAY_KEY_SECRET || "Q2Po6EULQ5qsziBNOV9i4C9f";
 
   if (!key_secret) {
@@ -401,18 +528,69 @@ app.post("/api/razorpay/verify-payment", async (req, res) => {
     .digest("hex");
 
   if (razorpay_signature === expectedSign) {
-    // In a real app, you would update the user's subscription status in Firestore here
+    // Persist subscription to Firestore
+    if (userId) {
+      try {
+        const adminSdk = await import("firebase-admin");
+        if (!adminSdk.apps.length) {
+          const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY
+            ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY)
+            : undefined;
+          if (serviceAccount || process.env.FIREBASE_PROJECT_ID) {
+            adminSdk.initializeApp({
+              credential: serviceAccount
+                ? adminSdk.credential.cert(serviceAccount)
+                : adminSdk.credential.applicationDefault(),
+            });
+          }
+        }
+        const db = adminSdk.apps.length ? adminSdk.firestore() : null;
+        if (db) {
+          await db.collection("users").doc(userId).set({
+            subscription: (planName || "scale").toLowerCase(),
+            subscriptionUpdatedAt: new Date().toISOString(),
+            paymentMethod: "razorpay",
+            lastOrderId: razorpay_order_id,
+          }, { merge: true });
+
+          // Record transaction for billing history
+          await db.collection("users").doc(userId).collection("transactions").add({
+            amount: "0", // Razorpay doesn't return amount in verify; client should pass it
+            plan: planName || "Scale",
+            status: "completed",
+            paymentMethod: "razorpay",
+            orderId: razorpay_order_id,
+            paymentId: razorpay_payment_id,
+            createdAt: new Date().toISOString(),
+          });
+        }
+      } catch (firestoreErr) {
+        console.error("Failed to persist Razorpay subscription:", firestoreErr);
+      }
+      recordAuditLog("payment_completed", userId, `Razorpay ${planName || "subscription"} — Order ${razorpay_order_id}`);
+    }
     return res.json({ status: "ok" });
   } else {
     return res.status(400).json({ error: "Invalid signature" });
   }
 });
 
-// --- Email Endpoint (SendGrid) ---
+// --- Email Endpoint (Resend) ---
 app.post("/api/email/send", async (req, res) => {
   const { to, subject, body } = req.body;
   if (!to || !subject || !body) {
     return res.status(400).json({ error: "Missing required fields: to, subject, body" });
+  }
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(to)) {
+    return res.status(400).json({ error: "Invalid email format" });
+  }
+  if (subject.length > 200) {
+    return res.status(400).json({ error: "Subject too long (max 200 chars)" });
+  }
+  if (body.length > 10000) {
+    return res.status(400).json({ error: "Body too long (max 10000 chars)" });
   }
 
   const resendKey = process.env.RESEND_API_KEY;
@@ -446,6 +624,18 @@ app.post("/api/tasks/execute", async (req, res) => {
 
   try {
     const adminSdk = await import("firebase-admin");
+    if (!adminSdk.apps.length) {
+      const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY
+        ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY)
+        : undefined;
+      if (serviceAccount || process.env.FIREBASE_PROJECT_ID) {
+        adminSdk.initializeApp({
+          credential: serviceAccount
+            ? adminSdk.credential.cert(serviceAccount)
+            : adminSdk.credential.applicationDefault(),
+        });
+      }
+    }
     const db = adminSdk.apps.length ? adminSdk.firestore() : null;
     if (!db) {
       return res.status(503).json({ error: "FIRESTORE_NOT_AVAILABLE" });

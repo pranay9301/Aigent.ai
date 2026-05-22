@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { collection, getDocs, query, limit, where } from "firebase/firestore";
+import { collection, getDocs, query, limit, where, orderBy } from "firebase/firestore";
 import { db, handleFirestoreError, OperationType } from "../lib/firebase";
 import { motion } from "motion/react";
 import { 
@@ -13,6 +13,8 @@ export default function AdminPanel() {
   const [users, setUsers] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [projectCount, setProjectCount] = useState(0);
+  const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [showAuditLogs, setShowAuditLogs] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -23,6 +25,15 @@ export default function AdminPanel() {
 
         const projectsSnap = await getDocs(collection(db, "projects"));
         setProjectCount(projectsSnap.size);
+
+        // Fetch recent audit logs from all users
+        try {
+          const logsQ = query(collection(db, "auditLogs"), orderBy("createdAt", "desc"), limit(50));
+          const logsSnap = await getDocs(logsQ);
+          setAuditLogs(logsSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+        } catch {
+          // auditLogs collection may not exist yet
+        }
       } catch (err) {
         handleFirestoreError(err, OperationType.LIST, "users");
       }
@@ -102,12 +113,20 @@ export default function AdminPanel() {
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-500/10 text-green-700 dark:text-green-500 text-[10px] font-bold uppercase tracking-wider">
-                          <CheckCircle className="w-2.5 h-2.5" /> ACTIVE
+                        <span className={cn(
+                          "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider",
+                          u.status === "disabled"
+                            ? "bg-red-500/10 text-red-700 dark:text-red-500"
+                            : "bg-green-500/10 text-green-700 dark:text-green-500"
+                        )}>
+                          {u.status === "disabled" ? <XCircle className="w-2.5 h-2.5" /> : <CheckCircle className="w-2.5 h-2.5" />}
+                          {u.status === "disabled" ? "DISABLED" : "ACTIVE"}
                         </span>
                       </td>
                       <td className="px-6 py-4">
-                        <span className="text-[10px] font-bold font-mono text-blue-700 dark:text-blue-500 uppercase tracking-wider">Free Tier</span>
+                        <span className="text-[10px] font-bold font-mono text-blue-700 dark:text-blue-500 uppercase tracking-wider">
+                          {u.subscription ? u.subscription.charAt(0).toUpperCase() + u.subscription.slice(1) : "Free Tier"}
+                        </span>
                       </td>
                       <td className="px-6 py-4 text-right">
                         <button className="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-xl transition-all text-slate-400"><MoreVertical className="w-4 h-4" /></button>
@@ -145,11 +164,42 @@ export default function AdminPanel() {
               ))
             )}
           </div>
-          <button className="w-full mt-8 py-4 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs rounded-2xl tracking-widest uppercase transition-all shadow-sm active:scale-95">
+          <button
+            onClick={() => setShowAuditLogs(true)}
+            className="w-full mt-8 py-4 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs rounded-2xl tracking-widest uppercase transition-all shadow-sm active:scale-95"
+          >
             Full Audit Logs
           </button>
         </div>
       </div>
+
+      {/* Audit Logs Modal */}
+      {showAuditLogs && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-6">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={() => setShowAuditLogs(false)} />
+          <div className="relative w-full max-w-2xl max-h-[80vh] bg-white dark:bg-slate-900 border border-black/10 dark:border-white/10 rounded-3xl overflow-hidden shadow-2xl">
+            <div className="p-6 border-b border-black/5 dark:border-white/10 flex justify-between items-center">
+              <h3 className="font-bold text-slate-950 dark:text-white uppercase text-sm tracking-tight">Audit Logs</h3>
+              <button onClick={() => setShowAuditLogs(false)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all text-slate-400">X</button>
+            </div>
+            <div className="overflow-y-auto max-h-[60vh] p-6 space-y-3">
+              {auditLogs.length === 0 ? (
+                <p className="text-center text-slate-500 text-xs py-10">No audit logs found. Logs are recorded when users perform key actions.</p>
+              ) : (
+                auditLogs.map((log: any) => (
+                  <div key={log.id} className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-black/5 dark:border-white/5">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">{log.action || "unknown"}</span>
+                      <span className="text-[9px] font-mono text-slate-400">{log.createdAt || ""}</span>
+                    </div>
+                    <p className="text-[11px] text-slate-600 dark:text-slate-400">{log.user || log.userId || "System"} — {log.details || log.description || ""}</p>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -27,6 +27,7 @@ export default function Billing() {
   const [userSubscription, setUserSubscription] = useState("free");
   const [projectCount, setProjectCount] = useState(0);
   const [isLoadingConfig, setIsLoadingConfig] = useState(true);
+  const [transactions, setTransactions] = useState<{id: string, amount: string, date: string, status: string, plan: string}[]>([]);
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -39,6 +40,17 @@ export default function Billing() {
         const projectsQ = query(collection(db, "projects"), where("ownerId", "==", auth.currentUser.uid));
         const projectsSnap = await getDocs(projectsQ);
         setProjectCount(projectsSnap.size);
+
+        // Fetch transaction history
+        try {
+          const txSnap = await getDocs(collection(db, "users", auth.currentUser.uid, "transactions"));
+          setTransactions(txSnap.docs.map(d => {
+            const data = d.data();
+            return { id: d.id, amount: data.amount, date: data.createdAt || data.date || "", status: data.status, plan: data.plan } as any;
+          }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+        } catch {
+          // Transactions collection may not exist yet
+        }
       } catch (err) {
         console.error("Failed to fetch user data:", err);
       }
@@ -169,10 +181,10 @@ export default function Billing() {
     }
   };
 
-  const tierLimits: Record<string, { tokens: string; projects: string }> = {
-    free: { tokens: "50k", projects: "3" },
-    scale: { tokens: "1M", projects: "50" },
-    enterprise: { tokens: "Unlimited", projects: "Unlimited" },
+  const tierLimits: Record<string, { tokens: string; projects: string; price: string }> = {
+    free: { tokens: "50k", projects: "3", price: "$0" },
+    scale: { tokens: "1M", projects: "50", price: "$69" },
+    enterprise: { tokens: "Unlimited", projects: "Unlimited", price: "$299" },
   };
   const currentTier = tierLimits[userSubscription] || tierLimits.free;
 
@@ -196,7 +208,7 @@ export default function Billing() {
           </div>
           <div className="flex items-center gap-2 px-4 py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-full">
             <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-            <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Active Tier: Enterprise</span>
+            <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Active Tier: {userSubscription.charAt(0).toUpperCase() + userSubscription.slice(1)}</span>
           </div>
         </div>
 
@@ -231,11 +243,11 @@ export default function Billing() {
                 <div className="relative z-10">
                   <div className="flex justify-between items-start mb-8">
                     <div>
-                      <h2 className="text-2xl font-bold text-slate-950 dark:text-white uppercase mb-1">Aigent Enterprise</h2>
-                      <p className="text-slate-600 dark:text-slate-400 text-xs font-medium">Billed annually • Next renewal: May 01, 2027</p>
+                      <h2 className="text-2xl font-bold text-slate-950 dark:text-white uppercase mb-1">Aigent {userSubscription.charAt(0).toUpperCase() + userSubscription.slice(1)}</h2>
+                      <p className="text-slate-600 dark:text-slate-400 text-xs font-medium">Current subscription tier</p>
                     </div>
                     <div className="text-right">
-                      <div className="text-3xl font-bold text-slate-950 dark:text-white">$299<span className="text-sm font-normal text-slate-500 tracking-normal">/mo</span></div>
+                      <div className="text-3xl font-bold text-slate-950 dark:text-white">{currentTier.price}<span className="text-sm font-normal text-slate-500 tracking-normal">/mo</span></div>
                     </div>
                   </div>
 
@@ -490,9 +502,26 @@ export default function Billing() {
                 </tr>
               </thead>
               <tbody>
-                <tr>
-                  <td colSpan={5} className="px-8 py-10 text-center text-slate-500 dark:text-slate-400 text-xs font-medium">No invoices yet. Payments will appear here after your first subscription.</td>
-                </tr>
+                {transactions.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-8 py-10 text-center text-slate-500 dark:text-slate-400 text-xs font-medium">No invoices yet. Payments will appear here after your first subscription.</td>
+                  </tr>
+                ) : (
+                  transactions.map(tx => (
+                    <tr key={tx.id} className="border-b border-black/5 dark:border-white/5">
+                      <td className="px-8 py-4 text-xs font-mono text-slate-600 dark:text-slate-400">{tx.id.slice(0, 12)}...</td>
+                      <td className="px-8 py-4 text-xs text-slate-600 dark:text-slate-400">{tx.date}</td>
+                      <td className="px-8 py-4 text-xs font-bold text-slate-900 dark:text-white">${tx.amount}</td>
+                      <td className="px-8 py-4">
+                        <span className={cn(
+                          "text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full",
+                          tx.status === "completed" ? "bg-green-500/10 text-green-600" : "bg-amber-500/10 text-amber-600"
+                        )}>{tx.status}</span>
+                      </td>
+                      <td className="px-8 py-4 text-right text-xs text-slate-500 dark:text-slate-400">{tx.plan}</td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
