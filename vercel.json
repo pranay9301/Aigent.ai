@@ -1,5 +1,9 @@
 {
   "version": 2,
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "installCommand": "npm ci",
+  "framework": "vite",
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api" }
   ],
@@ -8,5 +12,11 @@
       "path": "/api/tasks/execute",
       "schedule": "0 0 * * *"
     }
-  ]
+  ],
+  "functions": {
+    "api/index.ts": {
+      "memory": 512,
+      "maxDuration": 30
+    }
+  }
 }

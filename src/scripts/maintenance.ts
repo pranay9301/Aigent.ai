@@ -23,7 +23,7 @@ async function runMaintenance() {
     console.log("Analyzing platform efficiency...");
     
     const result = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-2.0-flash",
       contents: [{
         role: 'user',
         parts: [{

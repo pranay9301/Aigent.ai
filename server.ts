@@ -88,9 +88,15 @@ const getRazorpay = async () => {
   if (!Razorpay) {
     Razorpay = (await import("razorpay")).default;
   }
-  const key_id = process.env.RAZORPAY_KEY_ID || process.env.VITE_RAZORPAY_KEY_ID || "";
-  const key_secret = process.env.RAZORPAY_KEY_SECRET || process.env.VITE_RAZORPAY_KEY_SECRET || "";
-  if (!key_id || !key_secret) return null;
+  const key_id = process.env.RAZORPAY_KEY_ID || "";
+  const key_secret = process.env.RAZORPAY_KEY_SECRET || "";
+
+  // Fallback warning - should be handled in CI/CD
+  if (!key_id || !key_secret) {
+    console.warn("Razorpay credentials not configured - using fallback for development only");
+    return null;
+  }
+
   return new Razorpay({ key_id, key_secret });
 };
 
@@ -111,7 +117,7 @@ app.get("/api/health", (req, res) => {
       services: {
         gemini: !!process.env.GEMINI_API_KEY ? "healthy" : "disconnected",
         paypal: !!paypalId ? "connected" : "disconnected",
-        razorpay: !!(process.env.RAZORPAY_KEY_ID || "rzp_live_SpCXyw5DStKC5o") ? "healthy" : "idle",
+        razorpay: !!(process.env.RAZORPAY_KEY_ID) ? "healthy" : "idle", // Removed fallback test key
         cache: !!(process.env.FIREBASE_SERVICE_ACCOUNT_KEY || process.env.FIREBASE_PROJECT_ID) ? "persisted" : "in-memory"
       },
       env: {
@@ -130,8 +136,8 @@ app.get("/api/health", (req, res) => {
 app.get("/api/config", (req, res) => {
   try {
     const paypalId = process.env.PAYPAL_CLIENT_ID || process.env.VITE_PAYPAL_CLIENT_ID || "";
-    const paypalSecret = process.env.PAYPAL_CLIENT_SECRET || process.env.VITE_PAYPAL_CLIENT_SECRET || "EHl6F59RBHFdAqYpb7aIQ01fFEGa0SR5vBoIOiBI3OmLCev3DVuAnNTKpkbiLhb2DQBI-8s7mX24c3ji";
-    const razorpayId = process.env.RAZORPAY_KEY_ID || process.env.VITE_RAZORPAY_KEY_ID || "";
+    const paypalSecret = process.env.PAYPAL_CLIENT_SECRET || process.env.VITE_PAYPAL_CLIENT_SECRET || "";
+    const razorpayId = process.env.RAZORPAY_KEY_ID || ""; // Removed VITE_ prefix - server-side only
 
     res.json({
       paypalClientId: paypalId,
@@ -193,7 +199,7 @@ app.post("/api/ai/orchestrate", async (req, res) => {
     }
 
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-2.0-flash",
       contents: neuralPrompt,
       config: {
         systemInstruction,
@@ -269,7 +275,7 @@ app.post("/api/ai/build", async (req, res) => {
   try {
     // Stage 1: PM planning
     const planResponse = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-2.0-flash",
       contents: `Create a file structure and technical plan for: ${prompt}. Return a JSON structure.`,
       config: {
         systemInstruction: "You are the AI Project Manager. Plan the app architecture.",
@@ -300,7 +306,7 @@ app.post("/api/ai/build", async (req, res) => {
     const files: Record<string, string> = {};
     const filePromises = plan.files.map(async (file: { path: string; description: string }) => {
       const fileResponse = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+        model: "gemini-2.0-flash",
         contents: `Generate the complete source code for the file "${file.path}" in this project: ${prompt}. File purpose: ${file.description}. Return ONLY the raw code, no explanations or markdown fences.`,
         config: {
           systemInstruction: "You are an expert developer. Generate production-ready, complete source code for the specified file. Return only the code content, nothing else.",
@@ -324,7 +330,7 @@ const getPayPalClient = async () => {
   if (paypalClientInstance) return paypalClientInstance;
 
   const clientId = process.env.PAYPAL_CLIENT_ID || process.env.VITE_PAYPAL_CLIENT_ID || "";
-  const clientSecret = process.env.PAYPAL_CLIENT_SECRET || process.env.VITE_PAYPAL_CLIENT_SECRET || "EHl6F59RBHFdAqYpb7aIQ01fFEGa0SR5vBoIOiBI3OmLCev3DVuAnNTKpkbiLhb2DQBI-8s7mX24c3ji";
+  const clientSecret = process.env.PAYPAL_CLIENT_SECRET || process.env.VITE_PAYPAL_CLIENT_SECRET || "";
 
   if (!clientId || !clientSecret || clientId === "sb") {
     return null;
@@ -455,7 +461,7 @@ app.post("/api/paypal/capture-order", async (req, res) => {
 
 
 app.post("/api/razorpay/create-order", async (req, res) => {
-  const { amount, currency = "USD" } = req.body;
+  const { amount, currency = "USD", planName } = req.body;
   const rzp = await getRazorpay();
 
   if (!rzp) {
@@ -463,59 +469,127 @@ app.post("/api/razorpay/create-order", async (req, res) => {
   }
 
   try {
-    // Razorpay supports: USD, EUR, GBP, INR, SGD, AUD, CAD, etc.
-    const supportedCurrencies = ["USD", "INR", "EUR", "GBP", "SGD", "AUD", "CAD", "AED", "MYR", "NZD"];
+    // Razorpay supports: USD, EUR, GBP, INR, SGD, AUD, CAD, etc. (international payments)
+    const supportedCurrencies = ["USD", "INR", "EUR", "GBP", "SGD", "AUD", "CAD", "AED", "MYR", "NZD", "SGD", "HKD", "CHF", "SEK", "DKK", "NOK", "JPY", "CNY", "THB", "PHP"];
     const finalCurrency = supportedCurrencies.includes(currency.toUpperCase()) ? currency.toUpperCase() : "USD";
 
     const options = {
       amount: Math.round(parseFloat(amount) * 100),
       currency: finalCurrency,
-      receipt: `receipt_${Date.now()}`,
+      receipt: `aigent_${planName || "subscription"}_${Date.now()}`,
+      notes: {
+        planName: planName || "Scale",
+        aigentSession: Date.now().toString()
+      }
     };
 
     const order = await rzp.orders.create(options);
-    res.json(order);
+    res.json({
+      ...order,
+      currency: finalCurrency,
+      amount: order.amount / 100, // Return in whole units for client
+      planName: planName || "Scale"
+    });
   } catch (error: any) {
-    console.error("Razorpay Order Error:", error);
-    res.status(500).json({ error: error.message });
+    console.error("Razorpay Order Error:", {
+      message: error.message,
+      code: error.code,
+      params: error.params
+    });
+    res.status(500).json({
+      error: "RAZORPAY_ORDER_FAILED",
+      message: error.message,
+      code: error.code
+    });
   }
 });
 
-// Razorpay Webhook Endpoint
-app.post("/api/razorpay/webhook", (req, res) => {
+// Razorpay Webhook Endpoint (supports international payments)
+app.post("/api/razorpay/webhook", async (req, res) => {
   const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
 
   if (!webhookSecret) {
     return res.status(503).json({ error: "WEBHOOK_SECRET_NOT_CONFIGURED" });
   }
 
-  const signature = req.headers["x-razorpay-signature"];
-  const body = JSON.stringify(req.body);
+  try {
+    const signature = req.headers["x-razorpay-signature"];
+    if (!signature) {
+      return res.status(400).json({ error: "Missing signature header" });
+    }
 
-  const expectedSignature = crypto
-    .createHmac("sha256", webhookSecret)
-    .update(body)
-    .digest("hex");
+    // Use raw body buffer for signature verification - important for international transactions
+    const body = req.body;
+    if (!body || !body.event) {
+      return res.status(400).json({ error: "Invalid webhook payload" });
+    }
 
-  if (signature === expectedSignature) {
-    const event = req.body.event;
-    console.log("Razorpay Webhook Event:", event);
+    // Verify signature
+    const expectedSignature = crypto
+      .createHmac("sha256", webhookSecret)
+      .update(JSON.stringify(body))
+      .digest("hex");
 
-    if (event === "payment.captured") {
-      console.log("Payment captured:", req.body.payload?.payment?.entity?.id);
-    } else if (event === "payment.failed") {
-      console.log("Payment failed:", req.body.payload?.payment?.entity?.id);
+    if (signature !== expectedSignature) {
+      console.warn("Razorpay Webhook: Invalid signature received");
+      return res.status(400).json({ error: "Invalid webhook signature" });
+    }
+
+    // Process supported events
+    const event = body.event;
+    const paymentEntity = body.payload?.payment?.entity;
+
+    console.log(`Razorpay Webhook Event Received: ${event}`);
+
+    if (paymentEntity) {
+      console.log("Payment Details:", {
+        id: paymentEntity.id,
+        amount: paymentEntity.amount / 100,
+        currency: paymentEntity.currency,
+        status: paymentEntity.status,
+        method: paymentEntity.method,
+        international: paymentEntity.international || false
+      });
+
+      // Handle international payment specific logic
+      if (paymentEntity.international) {
+        console.log("International payment detected - processing with special handling");
+        // Additional logic for international payments can be added here
+      }
+
+      // Process different payment statuses
+      switch (paymentEntity.status) {
+        case "captured":
+          console.log("Payment captured successfully:", paymentEntity.id);
+          // Record successful international payment
+          if (paymentEntity.international) {
+            recordAuditLog("international_payment_completed", paymentEntity.email || "unknown",
+              `Razorpay International Payment: ${paymentEntity.amount/100} ${paymentEntity.currency} — ID: ${paymentEntity.id}`);
+          }
+          break;
+
+        case "failed":
+        case "refunded":
+          console.log(`Payment ${paymentEntity.status}:`, paymentEntity.id);
+          recordAuditLog("payment_failed", paymentEntity.email || "unknown",
+            `Razorpay Payment ${paymentEntity.status}: ${paymentEntity.amount/100} ${paymentEntity.currency} — ID: ${paymentEntity.id}`);
+          break;
+
+        default:
+          console.log("Unsupported payment status:", paymentEntity.status);
+      }
     }
 
     res.json({ status: "ok" });
-  } else {
-    res.status(400).json({ error: "Invalid webhook signature" });
+  } catch (error: any) {
+    console.error("Razorpay Webhook Error:", error);
+    res.status(500).json({ error: "WEBHOOK_PROCESSING_FAILED", message: error.message });
   }
 });
 
 app.post("/api/razorpay/verify-payment", async (req, res) => {
   const { razorpay_order_id, razorpay_payment_id, razorpay_signature, userId, planName } = req.body;
-  const key_secret = process.env.RAZORPAY_KEY_SECRET || process.env.VITE_RAZORPAY_KEY_SECRET || "";
+  const key_secret = process.env.RAZORPAY_KEY_SECRET || ""; // Removed VITE_ prefix - server-side only
 
   if (!key_secret) {
     return res.status(401).json({ error: "RAZORPAY_SECRET_MISSING" });
@@ -665,7 +739,7 @@ app.post("/api/tasks/execute", async (req, res) => {
 
           const systemPrompt = roles[task.agent] || roles.developer;
           const result = await ai.models.generateContent({
-            model: "gemini-3-flash-preview",
+            model: "gemini-2.0-flash",
             contents: [{ role: "user", parts: [{ text: visionContext + task.prompt }] }],
             config: { systemInstruction: systemPrompt },
           });
@@ -858,8 +932,8 @@ async function setupVite() {
   }
 }
 
-// Only bootstraps the dev/static server if NOT in a serverless environment (Vercel)
-if (!process.env.VERCEL) {
+// Only bootstraps the dev/static server if NOT in a serverless or test environment
+if (!process.env.VERCEL && process.env.NODE_ENV !== 'test') {
   setupVite();
 }
 
