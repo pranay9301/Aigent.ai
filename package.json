@@ -14,7 +14,10 @@
     "lint": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "maintenance": "tsx src/scripts/maintenance.ts"
+    "maintenance": "tsx src/scripts/maintenance.ts",
+    "deploy": "bash scripts/deploy.sh",
+    "deploy:vercel": "node scripts/deploy-to-vercel.js",
+    "secrets:setup": "bash scripts/setup-secrets.sh"
   },
   "dependencies": {
     "@google/genai": "^1.29.0",

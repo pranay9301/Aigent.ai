@@ -16,6 +16,10 @@ on:
           - production
           - preview
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   NODE_VERSION: '22'
 
@@ -92,6 +96,7 @@ jobs:
           path: dist/
 
       - name: Deploy to Vercel
+        id: deploy
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
@@ -112,10 +117,79 @@ jobs:
           SERVER_URL: ${{ secrets.SERVER_URL }}
 
         run: |
-          npx vercel pull --yes --token="${{ secrets.VERCEL_TOKEN }}"
-          npx vercel build --prod --token="${{ secrets.VERCEL_TOKEN }}"
-          npx vercel deploy --prebuilt --prod --token="${{ secrets.VERCEL_TOKEN }}"
+          echo "🚀 Deploying to Vercel..."
+          npx vercel pull --yes --token="${{ secrets.VERCEL_TOKEN }}" 2>&1
+          npx vercel build --prod --token="${{ secrets.VERCEL_TOKEN }}" 2>&1
+          npx vercel deploy --prebuilt --prod --token="${{ secrets.VERCEL_TOKEN }}" 2>&1 | tee vercel-output.txt
 
-      - name: Notify deployment success
-        if: success()
-        run: echo "✅ Deployment to Vercel completed successfully"
+      - name: Extract deploy URL
+        id: url
+        run: |
+          URL=$(grep -oP 'https://[a-z0-9-]+\.vercel\.app' vercel-output.txt | tail -1 || echo "")
+          echo "deploy_url=$URL" >> "$GITHUB_OUTPUT"
+
+      - name: Set deployment status
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const url = '${{ steps.url.outputs.deploy_url }}';
+            const sha = context.payload?.push?.head || context.sha;
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: sha,
+              state: 'success',
+              target_url: url || 'https://vercel.com/pranay9301/aigent-ai',
+              description: url ? `Deployed to ${url}` : 'Deployment complete',
+              context: 'vercel/deploy'
+            });
+
+      - name: Deployment summary
+        run: |
+          echo "## ✅ Deployment Complete" >> $GITHUB_STEP_SUMMARY
+          echo "URL: ${{ steps.url.outputs.deploy_url || 'Check Vercel dashboard' }}" >> $GITHUB_STEP_SUMMARY
+          echo "Commit: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+
+  # ── Vercel Preview (for PRs) ────────────────────────────────────────────
+  preview:
+    name: Vercel Preview
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: github.event_name == 'pull_request'
+    needs: [build]
+    environment: preview
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download dist artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Deploy Preview to Vercel
+        id: preview
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          npx vercel pull --yes --token="${{ secrets.VERCEL_TOKEN }}" 2>&1
+          npx vercel build --token="${{ secrets.VERCEL_TOKEN }}" 2>&1
+          npx vercel deploy --prebuilt --token="${{ secrets.VERCEL_TOKEN }}" 2>&1 | tee vercel-preview.txt
+
+      - name: Comment PR with preview URL
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const output = require('fs').readFileSync('vercel-preview.txt', 'utf8');
+            const url = output.match(/https:\/\/[a-z0-9-]+\.vercel\.app/)?.[0];
+            if (url) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: `🚀 **Preview deployed:** [${url}](${url})`
+              });
+            }
