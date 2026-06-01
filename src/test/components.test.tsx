@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import React from "react";
 
 // Mock firebase
@@ -52,32 +52,36 @@ import AdminPanel from "../pages/AdminPanel";
 describe("AdminPanel", () => {
   it("renders the admin heading", async () => {
     render(React.createElement(AdminPanel));
-    expect(screen.getByText("GLOBAL ADMIN COMMAND")).toBeTruthy();
+    await waitFor(() => expect(screen.getByText("GLOBAL ADMIN COMMAND")).toBeTruthy());
   });
 
   it("renders stats grid", async () => {
     render(React.createElement(AdminPanel));
-    expect(screen.getByText("Total Users")).toBeTruthy();
-    expect(screen.getByText("Total Projects")).toBeTruthy();
-    expect(screen.getByText("Admin Users")).toBeTruthy();
-    expect(screen.getByText("Subscribed")).toBeTruthy();
+    await waitFor(() => {
+      expect(screen.getByText("Total Users")).toBeTruthy();
+      expect(screen.getByText("Total Projects")).toBeTruthy();
+      expect(screen.getByText("Admin Users")).toBeTruthy();
+      expect(screen.getByText("Subscribed")).toBeTruthy();
+    });
   });
 
   it("renders the user directory table", async () => {
     render(React.createElement(AdminPanel));
-    expect(screen.getByText("User Directory")).toBeTruthy();
-    expect(screen.getByText("Identity")).toBeTruthy();
-    expect(screen.getByText("Status")).toBeTruthy();
-    expect(screen.getByText("Plan")).toBeTruthy();
+    await waitFor(() => {
+      expect(screen.getByText("User Directory")).toBeTruthy();
+      expect(screen.getByText("Identity")).toBeTruthy();
+      expect(screen.getByText("Status")).toBeTruthy();
+      expect(screen.getByText("Plan")).toBeTruthy();
+    });
   });
 
   it("renders the audit logs button", async () => {
     render(React.createElement(AdminPanel));
-    expect(screen.getByText("Full Audit Logs")).toBeTruthy();
+    await waitFor(() => expect(screen.getByText("Full Audit Logs")).toBeTruthy());
   });
 
   it("shows empty state when no users", async () => {
     render(React.createElement(AdminPanel));
-    expect(screen.getByText("No nodes detected in local sector.")).toBeTruthy();
+    await waitFor(() => expect(screen.getByText("No nodes detected in local sector.")).toBeTruthy());
   });
 });

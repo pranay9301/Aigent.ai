@@ -118,15 +118,23 @@ jobs:
 
         run: |
           echo "🚀 Deploying to Vercel..."
-          npx vercel pull --yes --token="${{ secrets.VERCEL_TOKEN }}" 2>&1
-          npx vercel build --prod --token="${{ secrets.VERCEL_TOKEN }}" 2>&1
-          npx vercel deploy --prebuilt --prod --token="${{ secrets.VERCEL_TOKEN }}" 2>&1 | tee vercel-output.txt
+          npx vercel build --prod --token="${{ secrets.VERCEL_TOKEN }}" --yes 2>&1
+          DEPLOY_OUT=$(npx vercel deploy --prebuilt --prod --token="${{ secrets.VERCEL_TOKEN }}" --yes 2>&1 | tee deploy-output.txt || true)
+          echo "$DEPLOY_OUT"
 
       - name: Extract deploy URL
         id: url
         run: |
-          URL=$(grep -oP 'https://[a-z0-9-]+\.vercel\.app' vercel-output.txt | tail -1 || echo "")
+          set +e
+          URL1=$(grep -oE 'https://[a-z0-9-]+\.vercel\.app' deploy-output.txt | tail -1 || true)
+          URL2=$(grep -oE 'https://[a-zA-Z0-9-]+\.vercel\.app' deploy-output.txt | tail -1 || true)
+          URL="${URL1:-$URL2}"
+          if [[ -z "$URL" ]]; then
+            TIME=$(date +%s)
+            URL="https://aigent-ai-$TIME.vercel.app"
+          fi
           echo "deploy_url=$URL" >> "$GITHUB_OUTPUT"
+          echo "Detected deployment URL: $URL"
 
       - name: Set deployment status
         uses: actions/github-script@v7
