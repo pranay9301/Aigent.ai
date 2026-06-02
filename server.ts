@@ -953,22 +953,6 @@ app.post("/api/deploy/ai", async (req, res) => {
     res.status(500).json({ error: "DEPLOY_FAILED", details: err.message });
   }
 });
-        await db.collection("companies").doc(companyId).collection("deploys").add({
-          target: "vercel",
-          repo,
-          status: "success",
-          url,
-          createdAt: new Date().toISOString(),
-        });
-      }
-    }
-
-    res.json({ status: "ok", url, deploymentId: deployData.id });
-  } catch (err: any) {
-    console.error("Vercel deploy error:", err);
-    res.status(500).json({ error: "DEPLOY_FAILED", details: err.message });
-  }
-});
 
 // Vite middleware for development
 async function setupVite() {
