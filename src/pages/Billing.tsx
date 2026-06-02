@@ -159,15 +159,25 @@ export default function Billing() {
             ...response, 
             userId: auth.currentUser?.uid, 
             planName: normalizedPlan,
-            amount: order.amount 
+            amount: Math.round(order.amount * 100)
           }),
         });
-        const verifyData = await verifyRes.json();
-        if (verifyData.status === "ok") {
-          await updateSubscription(planName);
-          alert(`Neural Tier Upgraded: ${planName.toUpperCase()} session initialized.`);
+
+        if (verifyRes.status === 200 || verifyRes.status === 201) {
+          const verifyData = await verifyRes.json().catch(() => ({}));
+          if (verifyData.status === "ok" || (verifyRes.ok && !verifyData.error)) {
+            await updateSubscription(planName);
+            alert(`Payment verified for ${planDisplayName}. ${planDisplayName} plan is now active.`);
+          }
+        } else if (verifyRes.status === 400) {
+          const errData = await verifyRes.json().catch(() => ({}));
+          if (errData?.error === "Invalid signature") {
+            alert(`Payment signature verification failed. Contact billing support with order ${order.id}.`);
+          } else {
+            alert(`Payment verification failed: ${errData?.error || "Unknown error"}.`);
+          }
         } else {
-          alert("Verification Failed");
+          alert("Payment verification failed.");
         }
       },
       theme: {

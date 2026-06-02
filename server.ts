@@ -646,7 +646,7 @@ app.post("/api/razorpay/webhook", async (req, res) => {
 });
 
 app.post("/api/razorpay/verify-payment", async (req, res) => {
-  const { razorpay_order_id, razorpay_payment_id, razorpay_signature, userId, planName } = req.body;
+  const { razorpay_order_id, razorpay_payment_id, razorpay_signature, userId, planName, amount } = req.body;
   const key_secret = process.env.RAZORPAY_KEY_SECRET || ""; // Removed VITE_ prefix - server-side only
 
   if (!key_secret) {
@@ -687,7 +687,7 @@ app.post("/api/razorpay/verify-payment", async (req, res) => {
 
           // Record transaction for billing history
           await db.collection("users").doc(userId).collection("transactions").add({
-            amount: "0", // Razorpay doesn't return amount in verify; client should pass it
+            amount: amount != null ? String(amount) : "0",
             plan: planName || "Scale",
             status: "completed",
             paymentMethod: "razorpay",
