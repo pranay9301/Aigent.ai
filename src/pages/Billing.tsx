@@ -2,14 +2,13 @@ import { useState, useEffect } from "react";
 import { doc, updateDoc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
 import { db, auth } from "../lib/firebase";
 import { motion } from "motion/react";
-import { 
-  CreditCard, Shield, Zap, BarChart3, 
-  ArrowUpRight, Clock, CheckCircle2, 
+import {
+  CreditCard, Shield, Zap, BarChart3,
+  ArrowUpRight, Clock, CheckCircle2,
   AlertCircle, Download, ExternalLink,
   CreditCard as RazorpayIcon
 } from "lucide-react";
 import { cn } from "../lib/utils";
-import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
 
 export default function Billing() {
   const [activeTab, setActiveTab] = useState<"overview" | "history">("overview");
@@ -87,12 +86,6 @@ export default function Billing() {
     };
   }, []);
 
-  const paypalOptions = {
-    clientId: paypalClientId || "sb",
-    currency: "USD",
-    intent: "capture",
-  };
-
   const updateSubscription = async (planName: string) => {
     if (!auth.currentUser) return;
     try {
@@ -108,8 +101,8 @@ export default function Billing() {
   const handlePaymentError = (err: any) => {
     console.error("Neural Payment Error:", err);
     let message = "Unknown Error";
-    
-    if (typeof err === 'string') {
+
+    if (typeof err == 'string') {
       message = err;
     } else if (err?.message) {
       message = err.message;
@@ -127,7 +120,7 @@ export default function Billing() {
     };
 
     const finalMessage = friendlyMessages[message] || message;
-    
+
     alert(`PAYMENT_ERROR: ${finalMessage}\n\nPlease verify your Gateway keys in the System Settings Hub.`);
   };
 
@@ -187,6 +180,7 @@ export default function Billing() {
     enterprise: { tokens: "Unlimited", projects: "Unlimited", price: "$299" },
   };
   const currentTier = tierLimits[userSubscription] || tierLimits.free;
+  const planAmount = currentTier.price.replace(/[^0-9.]/g, "") || "0";
 
   const usageStats = [
     { label: "Subscription Tier", value: userSubscription.charAt(0).toUpperCase() + userSubscription.slice(1), limit: "", percent: 0, color: "text-cyan-400" },
@@ -196,7 +190,7 @@ export default function Billing() {
 
   return (
     <div className="pt-24 pb-12 px-6 container mx-auto">
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="max-w-5xl mx-auto"
@@ -214,7 +208,7 @@ export default function Billing() {
 
         {/* Navigation Tabs */}
         <div className="flex gap-1 p-1 bg-black/5 dark:bg-white/5 rounded-xl w-fit mb-8 shadow-sm">
-          <button 
+          <button
             onClick={() => setActiveTab("overview")}
             className={cn(
               "px-6 py-2.5 text-xs font-bold uppercase tracking-wider rounded-lg transition-all",
@@ -223,7 +217,7 @@ export default function Billing() {
           >
             Overview
           </button>
-          <button 
+          <button
             onClick={() => setActiveTab("history")}
             className={cn(
               "px-6 py-2.5 text-xs font-bold uppercase tracking-wider rounded-lg transition-all",
@@ -260,9 +254,9 @@ export default function Billing() {
                         </div>
                         {stat.percent > 0 && (
                           <div className="h-1.5 w-full bg-black/10 dark:bg-white/10 rounded-full overflow-hidden">
-                            <div 
-                              className={cn("h-full transition-all duration-1000 shadow-[0_0_8px_rgba(6,182,212,0.3)]", stat.color.replace('text', 'bg'))} 
-                              style={{ width: `${stat.percent}%` }} 
+                            <div
+                              className={cn("h-full transition-all duration-1000 shadow-[0_0_8px_rgba(6,182,212,0.3)]", stat.color.replace('text', 'bg'))}
+                              style={{ width: `${stat.percent}%` }}
                             />
                           </div>
                         )}
@@ -280,7 +274,7 @@ export default function Billing() {
                     <ExternalLink className="w-4 h-4 text-cyan-600 dark:text-cyan-400" /> Neural Payment Gateway
                   </h3>
                 </div>
-                
+
                 <div className="space-y-6">
                   {isLoadingConfig ? (
                     <div className="flex items-center gap-3 p-4 bg-black/5 dark:bg-white/5 rounded-xl animate-pulse">
@@ -296,9 +290,9 @@ export default function Billing() {
                       </div>
                     </div>
                   )}
-                  
+
                   <p className="text-xs text-slate-500 dark:text-slate-500 italic mb-4 font-medium uppercase tracking-tight">Select your upgrade tier below to scale your neural workforce.</p>
-                  
+
                   <div className="space-y-4">
                     {/* Scale Tier Button */}
                     <div className="p-6 rounded-2xl bg-black/[0.02] dark:bg-white/[0.02] border border-black/5 dark:border-white/5 hover:border-cyan-500/30 transition-all">
@@ -309,68 +303,19 @@ export default function Billing() {
                         </div>
                         <span className="text-sm font-bold text-cyan-700 dark:text-cyan-400">$69.00/mo</span>
                       </div>
-                      
+
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <label className="text-[10px] font-bold text-slate-500 dark:text-slate-500 uppercase tracking-wider block px-1">Global Gateway</label>
-                          {isPaypalConfigured ? (
-                            <PayPalScriptProvider options={paypalOptions}>
-                              <PayPalButtons
-                                style={{ layout: "horizontal", height: 35, color: "blue", shape: "rect", label: "pay" }}
-                                createOrder={async () => {
-                                    try {
-                                      const res = await fetch("/api/paypal/create-order", {
-                                        method: "POST",
-                                        headers: { "Content-Type": "application/json" },
-                                        body: JSON.stringify({ amount: "69.00", planName: "Scale" })
-                                      });
-                                      if (!res.ok) {
-                                        const errorData = await res.json().catch(() => ({ error: "NETWORK_ERROR" }));
-                                        throw new Error(errorData.message || errorData.error || "API_ERROR");
-                                      }
-                                      const data = await res.json();
-                                      if (!data.id) throw new Error("INVALID_ORDER_ID");
-                                      return data.id;
-                                    } catch (err: any) {
-                                      handlePaymentError(err);
-                                      throw err;
-                                    }
-                                }}
-                                onApprove={async (data) => {
-                                  setIsProcessing(true);
-                                  try {
-                                    const res = await fetch("/api/paypal/capture-order", {
-                                      method: "POST",
-                                      headers: { "Content-Type": "application/json" },
-                                      body: JSON.stringify({ orderId: data.orderID, userId: auth.currentUser?.uid, planName: "Scale" })
-                                    });
-                                    const capture = await res.json();
-                                    if (capture.status === "COMPLETED") {
-                                      await updateSubscription("Scale");
-                                      alert("Neural Tier Upgraded: SCALE session initialized.");
-                                    } else {
-                                      throw new Error("CAPTURE_FAILED");
-                                    }
-                                  } catch (err) {
-                                    handlePaymentError(err);
-                                  } finally {
-                                    setIsProcessing(false);
-                                  }
-                                }}
-                                onError={handlePaymentError}
-                              />
-                            </PayPalScriptProvider>
-                          ) : (
-                            <div className="w-full h-[35px] bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 flex items-center justify-center rounded-lg text-[10px] font-bold">
-                              PayPal not configured
-                            </div>
-                          )}
+                          <label className="text-[10px] font-bold text-slate-500 dark:text-slate-500 uppercase tracking-wider block px-1">Pay with PayPal</label>
+                          <div className="w-full h-[35px] bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 flex items-center justify-center rounded-lg text-[10px] font-bold">
+                            PayPal not configured
+                          </div>
                         </div>
 
                         <div className="space-y-2">
                           <label className="text-[10px] font-bold text-slate-500 dark:text-slate-500 uppercase tracking-wider block px-1">Alternative Node</label>
                           <button
-                            onClick={() => handleRazorpayPayment("69.00", "Scale")}
+                            onClick={() => handleRazorpayPayment(planAmount, "Scale")}
                             disabled={isProcessing}
                             className="w-full h-[35px] bg-[#3395ff] hover:bg-[#2087f1] text-white flex items-center justify-center gap-2 rounded-lg transition-all group overflow-hidden relative shadow-sm"
                           >
@@ -390,68 +335,19 @@ export default function Billing() {
                         </div>
                         <span className="text-sm font-bold text-purple-700 dark:text-purple-400">$299.00/mo</span>
                       </div>
-                      
+
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <label className="text-[10px] font-bold text-slate-500 dark:text-slate-500 uppercase tracking-wider block px-1">Global Gateway</label>
-                          {isPaypalConfigured ? (
-                            <PayPalScriptProvider options={paypalOptions}>
-                              <PayPalButtons
-                                style={{ layout: "horizontal", height: 35, color: "silver", shape: "rect", label: "pay" }}
-                                createOrder={async () => {
-                                    try {
-                                      const res = await fetch("/api/paypal/create-order", {
-                                        method: "POST",
-                                        headers: { "Content-Type": "application/json" },
-                                        body: JSON.stringify({ amount: "299.00", planName: "Enterprise" })
-                                      });
-                                      if (!res.ok) {
-                                        const errorData = await res.json().catch(() => ({ error: "NETWORK_ERROR" }));
-                                        throw new Error(errorData.message || errorData.error || "API_ERROR");
-                                      }
-                                      const data = await res.json();
-                                      if (!data.id) throw new Error("INVALID_ORDER_ID");
-                                      return data.id;
-                                    } catch (err: any) {
-                                      handlePaymentError(err);
-                                      throw err;
-                                    }
-                                }}
-                                onApprove={async (data) => {
-                                  setIsProcessing(true);
-                                  try {
-                                    const res = await fetch("/api/paypal/capture-order", {
-                                      method: "POST",
-                                      headers: { "Content-Type": "application/json" },
-                                      body: JSON.stringify({ orderId: data.orderID, userId: auth.currentUser?.uid, planName: "Enterprise" })
-                                    });
-                                    const capture = await res.json();
-                                    if (capture.status === "COMPLETED") {
-                                      await updateSubscription("Enterprise");
-                                      alert("Neural Tier Upgraded: ENTERPRISE session initialized.");
-                                    } else {
-                                      throw new Error("CAPTURE_FAILED");
-                                    }
-                                  } catch (err) {
-                                    handlePaymentError(err);
-                                  } finally {
-                                    setIsProcessing(false);
-                                  }
-                                }}
-                                onError={handlePaymentError}
-                              />
-                            </PayPalScriptProvider>
-                          ) : (
-                            <div className="w-full h-[35px] bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 flex items-center justify-center rounded-lg text-[10px] font-bold">
-                              PayPal not configured
-                            </div>
-                          )}
+                          <label className="text-[10px] font-bold text-slate-500 dark:text-slate-500 uppercase tracking-wider block px-1">Pay with PayPal</label>
+                          <div className="w-full h-[35px] bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 flex items-center justify-center rounded-lg text-[10px] font-bold">
+                            PayPal not configured
+                          </div>
                         </div>
 
                         <div className="space-y-2">
                           <label className="text-[10px] font-bold text-slate-500 dark:text-slate-500 uppercase tracking-wider block px-1">Alternative Node</label>
                           <button
-                            onClick={() => handleRazorpayPayment("299.00", "Enterprise")}
+                            onClick={() => handleRazorpayPayment(planAmount, "Enterprise")}
                             disabled={isProcessing}
                             className="w-full h-[35px] bg-[#3395ff] hover:bg-[#2087f1] text-white flex items-center justify-center gap-2 rounded-lg transition-all group overflow-hidden relative shadow-sm"
                           >

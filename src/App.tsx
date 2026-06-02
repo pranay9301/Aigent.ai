@@ -32,9 +32,7 @@ export default function App() {
       if (u) {
         try {
           const snap = await getDoc(doc(db, "users", u.uid));
-          if (snap.exists()) {
-            setUserRole(snap.data().role || "user");
-          }
+          setUserRole(snap.exists() ? snap.data().role || "user" : "user");
         } catch {
           setUserRole("user");
         }

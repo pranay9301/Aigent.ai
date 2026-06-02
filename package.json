@@ -16,6 +16,9 @@
     "test:watch": "vitest",
     "maintenance": "tsx src/scripts/maintenance.ts",
     "deploy": "bash scripts/deploy.sh",
+    "make:deploy": "make deploy",
+    "make:deploy:prod": "make deploy-prod",
+    "make:deploy:preview": "make deploy-preview",
     "deploy:vercel": "node scripts/deploy-to-vercel.js",
     "secrets:setup": "bash scripts/setup-secrets.sh"
   },

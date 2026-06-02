@@ -6,7 +6,7 @@ import crypto from "crypto";
 import { pruneContext, cache, setPersistFn } from "./src/lib/neural-optim";
 import { persistCacheEntry } from "./src/lib/server-cache";
 
-dotenv.config();
+dotenv.config({ path: ".env.local" });
 
 // --- Rate Limiting ---
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
