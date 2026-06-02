@@ -141,12 +141,15 @@ export default function Billing() {
     });
     const order = await response.json();
 
+    const planDisplayName = planName === "Enterprise" || planName === "enterprise" ? "Enterprise" : "Scale";
+    const planPrice = planName === "Enterprise" || planName === "enterprise" ? "$299" : "$69";
+
     const options = {
       key: razorpayKeyId,
       amount: Math.round(order.amount * 100),
       currency: order.currency,
       name: "Aigent.ai",
-      description: `${planName} Subscription`,
+      description: `${planDisplayName} Plan - ${planPrice}/month`,
       order_id: order.id,
       handler: async (response: any) => {
         const verifyRes = await fetch("/api/razorpay/verify-payment", {
