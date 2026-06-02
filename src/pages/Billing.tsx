@@ -150,7 +150,7 @@ export default function Billing() {
 
     const options = {
       key: razorpayKeyId,
-      amount: order.amount,
+      amount: Math.round(order.amount * 100),
       currency: order.currency,
       name: "Aigent.ai",
       description: `${planName} Subscription`,
