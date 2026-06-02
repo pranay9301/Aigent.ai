@@ -124,55 +124,64 @@ export default function Billing() {
     alert(`PAYMENT_ERROR: ${finalMessage}\n\nPlease verify your Gateway keys in the System Settings Hub.`);
   };
 
-  const handleRazorpayPayment = async (amount: string, planName: string) => {
-    if (!isRazorpayConfigured) {
-      handlePaymentError("RAZORPAY_NOT_CONFIGURED");
-      return;
-    }
-
-    setIsProcessing(true);
-    try {
-      const response = await fetch("/api/razorpay/create-order", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount, currency: "USD" }),
-      });
-      const order = await response.json();
-
-      const options = {
-        key: razorpayKeyId,
-        amount: order.amount,
-        currency: order.currency,
-        name: "Aigent.ai",
-        description: `${planName} Subscription`,
-        order_id: order.id,
-        handler: async (response: any) => {
-          const verifyRes = await fetch("/api/razorpay/verify-payment", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ ...response, userId: auth.currentUser?.uid, planName }),
-          });
-          const verifyData = await verifyRes.json();
-          if (verifyData.status === "ok") {
-            await updateSubscription(planName);
-            alert(`Neural Tier Upgraded: ${planName.toUpperCase()} session initialized.`);
-          } else {
-            alert("Verification Failed");
-          }
-        },
-        theme: {
-          color: "#06b6d4",
-        },
-      };
-
-      const rzp = new (window as any).Razorpay(options);
-      rzp.open();
-    } catch (err) {
-      handlePaymentError(err);
-    } finally {
-      setIsProcessing(false);
-    }
+  const handleRazorpayPayment = async (planName: string) => {
+  const PLAN_AMOUNT: Record<string, string> = {
+    Scale: "69",
+    Enterprise: "299",
+    scale: "69",
+    enterprise: "299",
   };
+  const amount = PLAN_AMOUNT[planName] || "0";
+  const normalizedPlan = planName.charAt(0).toLowerCase() + planName.slice(1);
+
+  if (!isRazorpayConfigured) {
+    handlePaymentError("RAZORPAY_NOT_CONFIGURED");
+    return;
+  }
+
+  setIsProcessing(true);
+  try {
+    const response = await fetch("/api/razorpay/create-order", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ amount, currency: "USD" }),
+    });
+    const order = await response.json();
+
+    const options = {
+      key: razorpayKeyId,
+      amount: order.amount,
+      currency: order.currency,
+      name: "Aigent.ai",
+      description: `${planName} Subscription`,
+      order_id: order.id,
+      handler: async (response: any) => {
+        const verifyRes = await fetch("/api/razorpay/verify-payment", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...response, userId: auth.currentUser?.uid, planName: normalizedPlan }),
+        });
+        const verifyData = await verifyRes.json();
+        if (verifyData.status === "ok") {
+          await updateSubscription(planName);
+          alert(`Neural Tier Upgraded: ${planName.toUpperCase()} session initialized.`);
+        } else {
+          alert("Verification Failed");
+        }
+      },
+      theme: {
+        color: "#06b6d4",
+      },
+    };
+
+    const rzp = new (window as any).Razorpay(options);
+    rzp.open();
+  } catch (err) {
+    handlePaymentError(err);
+  } finally {
+    setIsProcessing(false);
+  }
+};
 
   const tierLimits: Record<string, { tokens: string; projects: string; price: string }> = {
     free: { tokens: "50k", projects: "3", price: "$0" },
@@ -304,18 +313,11 @@ export default function Billing() {
                         <span className="text-sm font-bold text-cyan-700 dark:text-cyan-400">$69.00/mo</span>
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <label className="text-[10px] font-bold text-slate-500 dark:text-slate-500 uppercase tracking-wider block px-1">Pay with PayPal</label>
-                          <div className="w-full h-[35px] bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 flex items-center justify-center rounded-lg text-[10px] font-bold">
-                            PayPal not configured
-                          </div>
-                        </div>
-
+                      <div className="grid grid-cols-1 gap-4">
                         <div className="space-y-2">
                           <label className="text-[10px] font-bold text-slate-500 dark:text-slate-500 uppercase tracking-wider block px-1">Alternative Node</label>
                           <button
-                            onClick={() => handleRazorpayPayment(planAmount, "Scale")}
+                            onClick={() => handleRazorpayPayment("Scale")}
                             disabled={isProcessing}
                             className="w-full h-[35px] bg-[#3395ff] hover:bg-[#2087f1] text-white flex items-center justify-center gap-2 rounded-lg transition-all group overflow-hidden relative shadow-sm"
                           >
@@ -336,18 +338,11 @@ export default function Billing() {
                         <span className="text-sm font-bold text-purple-700 dark:text-purple-400">$299.00/mo</span>
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <label className="text-[10px] font-bold text-slate-500 dark:text-slate-500 uppercase tracking-wider block px-1">Pay with PayPal</label>
-                          <div className="w-full h-[35px] bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 flex items-center justify-center rounded-lg text-[10px] font-bold">
-                            PayPal not configured
-                          </div>
-                        </div>
-
+                      <div className="grid grid-cols-1 gap-4">
                         <div className="space-y-2">
                           <label className="text-[10px] font-bold text-slate-500 dark:text-slate-500 uppercase tracking-wider block px-1">Alternative Node</label>
                           <button
-                            onClick={() => handleRazorpayPayment(planAmount, "Enterprise")}
+                            onClick={() => handleRazorpayPayment("Enterprise")}
                             disabled={isProcessing}
                             className="w-full h-[35px] bg-[#3395ff] hover:bg-[#2087f1] text-white flex items-center justify-center gap-2 rounded-lg transition-all group overflow-hidden relative shadow-sm"
                           >

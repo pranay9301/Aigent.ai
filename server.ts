@@ -461,7 +461,7 @@ app.post("/api/paypal/capture-order", async (req, res) => {
 
 
 app.post("/api/razorpay/create-order", async (req, res) => {
-  const { amount, currency = "USD", planName } = req.body;
+  const { planName } = req.body;
   const rzp = await getRazorpay();
 
   if (!rzp) {
@@ -469,37 +469,41 @@ app.post("/api/razorpay/create-order", async (req, res) => {
   }
 
   try {
-    // Razorpay supports: USD, EUR, GBP, INR, SGD, AUD, CAD, etc. (international payments)
-    const supportedCurrencies = ["USD", "INR", "EUR", "GBP", "SGD", "AUD", "CAD", "AED", "MYR", "NZD", "SGD", "HKD", "CHF", "SEK", "DKK", "NOK", "JPY", "CNY", "THB", "PHP"];
-    const finalCurrency = supportedCurrencies.includes(currency.toUpperCase()) ? currency.toUpperCase() : "USD";
+    const normalizedPlan = (planName || "Scale").toLowerCase();
+    const PLAN_AMOUNT_MAP: Record<string, number> = {
+      scale: 69,
+      enterprise: 299,
+    };
+    const amountInWholeUnits = PLAN_AMOUNT_MAP[normalizedPlan] ?? 0;
+    const currency = "USD";
 
     const options = {
-      amount: Math.round(parseFloat(amount) * 100),
-      currency: finalCurrency,
-      receipt: `aigent_${planName || "subscription"}_${Date.now()}`,
+      amount: amountInWholeUnits * 100,
+      currency,
+      receipt: `aigent_${normalizedPlan}_${Date.now()}`,
       notes: {
-        planName: planName || "Scale",
-        aigentSession: Date.now().toString()
-      }
+        planName: normalizedPlan,
+        aigentSession: Date.now().toString(),
+      },
     };
 
     const order = await rzp.orders.create(options);
     res.json({
       ...order,
-      currency: finalCurrency,
-      amount: order.amount / 100, // Return in whole units for client
-      planName: planName || "Scale"
+      currency,
+      amount: order.amount / 100,
+      planName: normalizedPlan,
     });
   } catch (error: any) {
     console.error("Razorpay Order Error:", {
       message: error.message,
       code: error.code,
-      params: error.params
+      params: error.params,
     });
     res.status(500).json({
       error: "RAZORPAY_ORDER_FAILED",
       message: error.message,
-      code: error.code
+      code: error.code,
     });
   }
 });
