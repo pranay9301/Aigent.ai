@@ -125,13 +125,6 @@ export default function Billing() {
   };
 
   const handleRazorpayPayment = async (planName: string) => {
-  const PLAN_AMOUNT: Record<string, string> = {
-    Scale: "69",
-    Enterprise: "299",
-    scale: "69",
-    enterprise: "299",
-  };
-  const amount = PLAN_AMOUNT[planName] || "0";
   const normalizedPlan = planName.charAt(0).toLowerCase() + planName.slice(1);
 
   if (!isRazorpayConfigured) {
@@ -144,7 +137,7 @@ export default function Billing() {
     const response = await fetch("/api/razorpay/create-order", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ amount, currency: "USD" }),
+      body: JSON.stringify({ planName: normalizedPlan }),
     });
     const order = await response.json();
 
