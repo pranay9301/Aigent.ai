@@ -155,7 +155,12 @@ export default function Billing() {
         const verifyRes = await fetch("/api/razorpay/verify-payment", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...response, userId: auth.currentUser?.uid, planName: normalizedPlan }),
+          body: JSON.stringify({ 
+            ...response, 
+            userId: auth.currentUser?.uid, 
+            planName: normalizedPlan,
+            amount: order.amount 
+          }),
         });
         const verifyData = await verifyRes.json();
         if (verifyData.status === "ok") {
