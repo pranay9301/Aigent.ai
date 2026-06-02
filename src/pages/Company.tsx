@@ -278,18 +278,32 @@ export default function Company() {
     if (!deployRepo.trim()) return;
     setDeploying(true);
     try {
-      const endpoint = deployTarget === "github" ? "/api/deploy/github" : "/api/deploy/vercel";
-      const res = await fetch(endpoint, {
+      const res = await fetch("/api/deploy/ai", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ repo: deployRepo.trim(), companyId: company?.id }),
+        body: JSON.stringify({
+          target: deployTarget,
+          repo: deployRepo.trim(),
+          companyId: company?.id,
+        }),
       });
       if (res.ok) {
         const data = await res.json();
-        setDeploys(prev => [{ id: Date.now().toString(), target: deployTarget, repo: deployRepo, status: "success", url: data.url, createdAt: new Date().toISOString() }, ...prev]);
+        setDeploys(prev => [
+          {
+            id: Date.now().toString(),
+            target: deployTarget,
+            repo: deployRepo,
+            status: "success",
+            url: data.url,
+            createdAt: new Date().toISOString(),
+          },
+          ...prev,
+        ]);
         notify(`DEPLOY_SUCCESS: Pushed to ${deployTarget}.`);
       } else {
-        notify("ERROR: Deployment failed.");
+        const errData = await res.json().catch(() => ({}));
+        notify(`ERROR: Deployment failed. ${errData?.error || ""}`);
       }
     } catch (err) {
       notify("ERROR: Deploy service unreachable.");

@@ -36,17 +36,18 @@
                  data.uid == request.auth.uid &&
                  data.email is string &&
                  data.role in ['user', 'admin'] &&
-                 data.subscription in ['free', 'pro', 'premium', 'enterprise'];
+                 data.subscription in ['free', 'scale', 'enterprise'];
         }
 
         allow create: if isSignedIn() && isOwner(userId) && isValidUser(request.resource.data);
         allow update: if isSignedIn() && (isOwner(userId) || isAdmin()) &&
-                      request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'subscription', 'role']);
+                      request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'subscription', 'subscriptionUpdatedAt', 'paymentMethod', 'lastOrderId', 'role']);
 
         // Transactions subcollection (billing history)
         match /transactions/{transactionId} {
           allow get, list: if isSignedIn() && (isOwner(userId) || isAdmin());
-          allow create, update, delete: if false;
+          allow create: if isOwner(userId);
+          allow update, delete: if false;
         }
       }
 
