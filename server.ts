@@ -111,26 +111,80 @@ const getPayPalSDK = async () => {
 app.get("/api/health", (req, res) => {
   try {
     const paypalId = process.env.PAYPAL_CLIENT_ID || process.env.VITE_PAYPAL_CLIENT_ID || "";
+    const razorpayReady = !!(
+      process.env.RAZORPAY_KEY_ID &&
+      process.env.RAZORPAY_KEY_SECRET &&
+      process.env.RAZORPAY_WEBHOOK_SECRET
+    );
+    const geminiReady = !!process.env.GEMINI_API_KEY;
+    const firebaseReady = !!(
+      process.env.FIREBASE_PROJECT_ID ||
+      process.env.FIREBASE_SERVICE_ACCOUNT_KEY
+    );
+    const resendReady = !!process.env.RESEND_API_KEY;
+    const services = {
+      gemini: geminiReady ? "healthy" : "disconnected",
+      paypal: !!paypalId ? "connected" : "disconnected",
+      razorpay: razorpayReady ? "healthy" : "idle",
+      firebase: firebaseReady ? "healthy" : "idle",
+      email: resendReady ? "healthy" : "idle",
+      cache: firebaseReady ? "persisted" : "in-memory",
+    } as Record<string, string>;
+
+    const degraded = Object.values(services).some(v => v === "disconnected" || v === "idle");
+    const status = degraded ? "degraded" : "ok";
+
     const healthStatus = {
-      status: "ok",
+      status,
       timestamp: new Date().toISOString(),
-      services: {
-        gemini: !!process.env.GEMINI_API_KEY ? "healthy" : "disconnected",
-        paypal: !!paypalId ? "connected" : "disconnected",
-        razorpay: !!(process.env.RAZORPAY_KEY_ID) ? "healthy" : "idle", // Removed fallback test key
-        cache: !!(process.env.FIREBASE_SERVICE_ACCOUNT_KEY || process.env.FIREBASE_PROJECT_ID) ? "persisted" : "in-memory"
-      },
+      services,
       env: {
         node: process.version,
         mode: process.env.NODE_ENV,
-        has_paypal_secret: !!process.env.PAYPAL_CLIENT_SECRET
+        has_paypal_secret: !!process.env.PAYPAL_CLIENT_SECRET,
       },
-      version: "1.2.2-neural"
+      version: "1.2.3-neural",
     };
-    res.json(healthStatus);
+    res.status(status === "ok" ? 200 : 503).json(healthStatus);
   } catch (err) {
-    res.status(500).json({ error: "Health check failed" });
+    res.status(500).json({ status: "error", error: "Health check failed" });
   }
+});
+
+app.get("/api/health/smoke", async (req, res) => {
+  const checks: Record<string, "pass" | "fail"> = {
+    config: "pass",
+    razorpay_create_order: "fail",
+    ai_heartbeat: "fail",
+  };
+
+  try {
+    const cfg = await fetch("/api/config", { headers: { "x-smoke": "1" } }).then(r => r.clone().json()).catch(() => ({}));
+    checks.config = !!cfg?.razorpayKeyId ? "pass" : "fail";
+  } catch {
+    checks.config = "fail";
+  }
+
+  try {
+    const rzp = await import("./src/lib/razorpay-client").then(m => m.getRazorpay()).catch(() => null);
+    checks.razorpay_create_order = rzp ? "pass" : "fail";
+  } catch {
+    checks.razorpay_create_order = "fail";
+  }
+
+  try {
+    const ai = await getAI();
+    checks.ai_heartbeat = ai ? "pass" : "fail";
+  } catch {
+    checks.ai_heartbeat = "fail";
+  }
+
+  const allPass = Object.values(checks).every(v => v === "pass");
+  res.status(allPass ? 200 : 503).json({
+    status: allPass ? "ok" : "degraded",
+    timestamp: new Date().toISOString(),
+    checks,
+  });
 });
 
 app.get("/api/config", (req, res) => {
@@ -770,125 +824,135 @@ app.post("/api/tasks/execute", async (req, res) => {
 
 // --- Deploy to GitHub ---
 app.post("/api/deploy/github", async (req, res) => {
-  const { repo, companyId } = req.body;
-  const token = process.env.GITHUB_TOKEN;
-
-  if (!token) {
-    return res.status(503).json({ error: "GITHUB_TOKEN_NOT_CONFIGURED" });
-  }
-
-  if (!repo) {
-    return res.status(400).json({ error: "Repository name required" });
-  }
-
-  try {
-    // Fetch company's first project files
-    const adminSdk = await import("firebase-admin");
-    const db = adminSdk.apps.length ? adminSdk.firestore() : null;
-    if (!db) return res.status(503).json({ error: "FIRESTORE_NOT_AVAILABLE" });
-
-    let files: Record<string, string> = {};
-    if (companyId) {
-      const projectsSnap = await db.collection("projects")
-        .where("ownerId", "==", companyId)
-        .limit(1)
-        .get();
-      if (!projectsSnap.empty) {
-        files = projectsSnap.docs[0].data().files || {};
-      }
-    }
-
-    if (Object.keys(files).length === 0) {
-      return res.status(400).json({ error: "No files found to deploy" });
-    }
-
-    // Push files to GitHub via API
-    const headers = {
-      Authorization: `Bearer ${token}`,
-      Accept: "application/vnd.github.v3+json",
-      "Content-Type": "application/json",
-    };
-
-    for (const [path, content] of Object.entries(files)) {
-      const apiUrl = `https://api.github.com/repos/${repo}/contents/${path}`;
-      // Check if file exists to get SHA for update
-      let sha: string | undefined;
-      try {
-        const existing = await fetch(apiUrl, { headers });
-        if (existing.ok) {
-          const data = await existing.json();
-          sha = data.sha;
-        }
-      } catch {}
-
-      await fetch(apiUrl, {
-        method: "PUT",
-        headers,
-        body: JSON.stringify({
-          message: `feat: deploy ${path}`,
-          content: Buffer.from(content).toString("base64"),
-          ...(sha ? { sha } : {}),
-        }),
-      });
-    }
-
-    // Log deploy
-    if (companyId) {
-      await db.collection("companies").doc(companyId).collection("deploys").add({
-        target: "github",
-        repo,
-        status: "success",
-        url: `https://github.com/${repo}`,
-        fileCount: Object.keys(files).length,
-        createdAt: new Date().toISOString(),
-      });
-    }
-
-    res.json({ status: "ok", url: `https://github.com/${repo}`, fileCount: Object.keys(files).length });
-  } catch (err: any) {
-    console.error("GitHub deploy error:", err);
-    res.status(500).json({ error: "DEPLOY_FAILED", details: err.message });
-  }
+  res.status(410).json({ error: "DEPLOY_ENDPOINT_DEPRECATED", message: "Use /api/deploy/ai instead" });
 });
 
-// --- Deploy to Vercel ---
 app.post("/api/deploy/vercel", async (req, res) => {
-  const { repo, companyId } = req.body;
-  const token = process.env.VERCEL_TOKEN;
+  res.status(410).json({ error: "DEPLOY_ENDPOINT_DEPRECATED", message: "Use /api/deploy/ai instead" });
+});
 
-  if (!token) {
+// Unified deploy endpoint with safety checks
+app.post("/api/deploy/ai", async (req, res) => {
+  const { target, repo, branch = "main", companyId } = req.body;
+
+  const allowedTargets = ["github", "vercel"];
+  if (!allowedTargets.includes(target)) {
+    return res.status(400).json({ error: "INVALID_DEPLOY_TARGET", allowedTargets });
+  }
+
+  const githubToken = process.env.GITHUB_TOKEN;
+  const vercelToken = process.env.VERCEL_TOKEN;
+
+  if (target === "github" && !githubToken) {
+    return res.status(503).json({ error: "GITHUB_TOKEN_NOT_CONFIGURED" });
+  }
+  if (target === "vercel" && !vercelToken) {
     return res.status(503).json({ error: "VERCEL_TOKEN_NOT_CONFIGURED" });
   }
 
   try {
-    const headers = {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    };
+    let result: { url?: string; fileCount?: number; status: string; target: string } = { status: "unknown", target };
 
-    // Create a new Vercel project deployment
-    const deployRes = await fetch("https://api.vercel.com/v13/deployments", {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
-        name: repo || `aigent-project-${Date.now()}`,
-        gitSource: { type: "github", repo, ref: "main" },
-      }),
-    });
-
-    if (!deployRes.ok) {
-      const err = await deployRes.json();
-      return res.status(400).json({ error: "VERCEL_DEPLOY_FAILED", details: err });
-    }
-
-    const deployData = await deployRes.json();
-    const url = `https://${deployData.url}`;
-
-    // Log deploy
-    if (companyId) {
+    if (target === "github") {
       const adminSdk = await import("firebase-admin");
       const db = adminSdk.apps.length ? adminSdk.firestore() : null;
-      if (db) {
+      let files: Record<string, string> = {};
+
+      if (db && companyId) {
+        const projectsSnap = await db.collection("projects")
+          .where("ownerId", "==", companyId)
+          .limit(1)
+          .get();
+
+        if (!projectsSnap.empty) {
+          files = projectsSnap.docs[0].data().files || {};
+        }
+      }
+
+      if (Object.keys(files).length === 0) {
+        return res.status(400).json({ error: "NO_FILES_FOUND_TO_DEPLOY" });
+      }
+
+      const headers = {
+        Authorization: `Bearer ${githubToken}`,
+        Accept: "application/vnd.github.v3+json",
+        "Content-Type": "application/json",
+      };
+
+      for (const [path, content] of Object.entries(files)) {
+        const apiUrl = `https://api.github.com/repos/${repo}/contents/${path}`;
+        let sha: string | undefined;
+        try {
+          const existing = await fetch(apiUrl, { headers });
+          if (existing.ok) {
+            const data = (await existing.json()) as { sha?: string };
+            sha = data.sha;
+          }
+        } catch {
+          // continue without sha for new files
+        }
+
+        await fetch(apiUrl, {
+          method: "PUT",
+          headers,
+          body: JSON.stringify({
+            message: `feat: deploy ${path}`,
+            content: Buffer.from(content).toString("base64"),
+            ...(sha ? { sha } : {}),
+            branch,
+          }),
+        });
+      }
+
+      result = {
+        url: `https://github.com/${repo}`,
+        fileCount: Object.keys(files).length,
+        status: "success",
+        target,
+      };
+    } else if (target === "vercel") {
+      const deployRes = await fetch("https://api.vercel.com/v13/deployments", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${vercelToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: repo || `aigent-project-${Date.now()}`,
+          gitSource: { type: "github", repo, ref: branch },
+        }),
+      });
+
+      if (!deployRes.ok) {
+        const err = await deployRes.json();
+        return res.status(400).json({ error: "VERCEL_DEPLOY_FAILED", details: err });
+      }
+
+      const deployData = (await deployRes.json()) as { url?: string };
+      result = {
+        url: `https://${deployData.url}`,
+        status: "success",
+        target,
+      };
+    }
+
+    if (companyId) {
+      const adminSdk2 = await import("firebase-admin");
+      const db2 = adminSdk2.apps.length ? adminSdk2.firestore() : null;
+      if (db2) {
+        await db2.collection("companies").doc(companyId).collection("deploys").add({
+          ...result,
+          createdAt: new Date().toISOString(),
+        });
+      }
+    }
+
+    res.json(result);
+  } catch (err: any) {
+    console.error("AI Deploy Error:", err);
+    res.status(500).json({ error: "DEPLOY_FAILED", details: err.message });
+  }
+});
         await db.collection("companies").doc(companyId).collection("deploys").add({
           target: "vercel",
           repo,
