@@ -1,10 +1,13 @@
 // Vercel serverless function entry point
-// Dynamic import handles the CJS output from esbuild in an ESM project
 let app: any;
 
 export default async function handler(req: any, res: any) {
   if (!app) {
-    app = (await import('../dist/server.cjs')).default;
+    const mod = await import('../dist/server.cjs');
+    app = (mod && (mod.default || mod)) || null;
   }
-  return app(req, res);
+  if (typeof app === 'function') {
+    return app(req, res);
+  }
+  return res.status(500).json({ error: 'SERVER_MODULE_LOAD_FAILED' });
 }

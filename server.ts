@@ -642,8 +642,11 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: "INTERNAL_ERROR", message: err instanceof Error ? err.message : "Unknown error" });
 });
 
-if (process.env.NODE_ENV !== "test") {
-  app.listen(PORT, "0.0.0.0", () => console.log(`Neural Engine online on http://0.0.0.0:${PORT}/api/health`));
+const isVercel = ['1', 'true'].includes(String(process.env.VERCEL || '').toLowerCase());
+const isTest = String(process.env.NODE_ENV || '').toLowerCase() === 'test';
+
+if (!isTest && !isVercel) {
+  app.listen(PORT, '0.0.0.0', () => console.log(`Neural Engine online on http://0.0.0.0:${PORT}/api/health`));
 }
 
 export default app;
