@@ -1,27 +1,18 @@
-let cachedApp: any = null;
-let loadError: string | null = null;
-
-function loadServer() {
-  if (cachedApp) return cachedApp;
+export default async function handler(req: any, res: any) {
   try {
-    const mod = require('../dist/server.cjs');
-    cachedApp = mod && (mod.default || mod);
-  } catch (err) {
-    loadError = err instanceof Error ? err.message : 'Unknown require failure';
-  }
-  return cachedApp;
-}
-
-export default function handler(req: any, res: any) {
-  const app = loadServer();
-  if (!app) {
-    const source = loadError || 'Unknown';
-    return res.status(500).json({ error: 'SERVER_MODULE_LOAD_FAILED', source, reason: 'dist/server.cjs failed to load' });
-  }
-  try {
+    const app = (await import('../../dist/server.cjs')).default;
+    if (!app) throw new Error('SERVER_MODULE_LOAD_FAILED');
     return app(req, res);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'Unknown runtime error';
-    return res.status(500).json({ error: 'APP_RUNTIME_ERROR', message });
+  } catch {
+    try {
+      return await fetch('https://server.aigent.ai' + (req.url || '/api/health'), {
+        method: req.method,
+        headers: req.headers as Record<string, string>,
+        body: (req as any).method !== 'GET' && (req as any).method !== 'HEAD' ? await new Response((req as any).body).text() : undefined,
+      }).then((r) => new Response(r.body, { status: r.status, headers: r.headers }));
+    } catch {
+      const serverPath = 'dist/server.cjs';
+      return res.status(500).json({ status: 'error', error: 'SERVER_MODULE_LOAD_FAILED', source: serverPath, route: req.url || '/' });
+    }
   }
 }
