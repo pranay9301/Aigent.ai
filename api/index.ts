@@ -1,4 +1,4 @@
-import { RequestListener } from 'express';
+import { RequestListener } from 'http';
 
 async function loadApp(): Promise<RequestListener<any, any> | null> {
   try {
