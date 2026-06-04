@@ -3,27 +3,37 @@ export default async function handler(req: any, res: any) {
   try {
     const mod = await import('./dist/server.cjs');
     const candidate = (mod as any).default ?? (mod as any);
-    app = candidate;
-    if (typeof app !== 'function' && typeof candidate === 'object' && 'default' in candidate) {
-      app = candidate.default;
+    let appCandidate: any = candidate;
+    if (typeof appCandidate !== 'function' && typeof candidate === 'object') {
+      const nestedKeys = Object.keys(candidate ?? {});
+      if ('default' in candidate && typeof candidate.default !== 'undefined') {
+        appCandidate = candidate.default;
+      } else if (nestedKeys.includes('module') && candidate.module?.exports) {
+        appCandidate = candidate.module.exports;
+      } else if (nestedKeys.includes('exports')) {
+        appCandidate = candidate.exports;
+      }
     }
+    app = appCandidate;
   } catch (e) {
     console.error('Failed to load server bundle:', e);
   }
   if (!app || typeof app !== 'function') {
-    const mod: any = await import('./dist/server.cjs').catch(() => null);
+    const modDetail: any = await import('./dist/server.cjs').catch(() => null);
     console.error('Handler runtime module shape:', {
-      hasDefault: !!mod?.default,
-      typeofDefault: typeof mod?.default,
-      keys: typeof mod === 'object' ? Object.keys(mod ?? {}) : [],
+      hasDefault: !!modDetail?.default,
+      typeofDefault: typeof modDetail?.default,
+      defaultNested: modDetail?.default && typeof modDetail.default === 'object' ? Object.keys(modDetail.default) : [],
+      keys: typeof modDetail === 'object' ? Object.keys(modDetail ?? {}) : [],
     });
     return res.status(500).json({
       error: 'SERVER_MODULE_LOAD_FAILED',
-      detail: typeof mod === 'object' ? {
-        hasDefault: !!mod.default,
-        typeofDefault: typeof mod.default,
-        keys: Object.keys(mod ?? {}),
-      } : { raw: typeof mod },
+      detail: typeof modDetail === 'object' ? {
+        hasDefault: !!modDetail.default,
+        typeofDefault: typeof modDetail.default,
+        defaultNested: modDetail?.default && typeof modDetail.default === 'object' ? Object.keys(modDetail.default) : [],
+        keys: Object.keys(modDetail ?? {}),
+      } : { raw: typeof modDetail },
     });
   }
   try {
