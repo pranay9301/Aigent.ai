@@ -1,8 +1,25 @@
-import app from '../dist/server.cjs';
+const serverPath = './dist/server.cjs';
 
-export default async function handler(req: any, res: any) {
-  if (!app || typeof app !== 'function') {
-    return res.status(500).json({ error: 'SERVER_MODULE_LOAD_FAILED', hint: 'Request handler import failed' });
+function loadServer() {
+  let mod: any;
+  try {
+    mod = require(serverPath);
+  } catch {
+    return null;
+  }
+  return mod && (mod.default || mod);
+}
+
+let app: any = null;
+try {
+  app = loadServer();
+} catch {
+  app = null;
+}
+
+export default function handler(req: any, res: any) {
+  if (!app) {
+    return res.status(500).json({ error: 'SERVER_MODULE_LOAD_FAILED', source: 'dist/server.cjs' });
   }
   return app(req, res);
 }
