@@ -4,7 +4,7 @@ let loadError: string | null = null;
 function loadServer() {
   if (cachedApp) return cachedApp;
   try {
-    const mod = require('./dist/server.cjs');
+    const mod = require('../dist/server.cjs');
     cachedApp = mod && (mod.default || mod);
   } catch (err) {
     loadError = err instanceof Error ? err.message : 'Unknown require failure';
