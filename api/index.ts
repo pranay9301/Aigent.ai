@@ -1,8 +1,14 @@
-import app from './dist/server.cjs';
+let app: any = null;
+try {
+  const mod = require('./dist/server.cjs') as any;
+  app = mod && typeof mod === 'object' && 'default' in mod ? mod.default : mod;
+} catch (e) {
+  console.error('Failed to load server bundle:', e);
+}
 
 export default function handler(req: any, res: any) {
-  if (!app) {
-    return res.status(500).json({ error: 'SERVER_MODULE_LOAD_FAILED', source: 'dist/server.cjs' });
+  if (!app || typeof app !== 'function') {
+    return res.status(500).json({ error: 'SERVER_MODULE_LOAD_FAILED' });
   }
   try {
     return app(req, res);
