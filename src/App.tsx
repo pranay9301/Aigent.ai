@@ -10,6 +10,7 @@ import AuthPage from "./pages/AuthPage";
 import AdminPanel from "./pages/AdminPanel";
 import Billing from "./pages/Billing";
 import Projects from "./pages/Projects";
+import AIProjectWizard from "./pages/AIProjectWizard";
 import TermsOfService from "./pages/TermsOfService";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import RefundPolicy from "./pages/RefundPolicy";
@@ -67,6 +68,7 @@ export default function App() {
           <Route path="/billing" element={user ? <Billing /> : <Navigate to="/auth" />} />
           <Route path="/company" element={user ? <Company /> : <Navigate to="/auth" />} />
           <Route path="/projects" element={user ? <Projects /> : <Navigate to="/auth" />} />
+          <Route path="/wizard" element={<AIProjectWizard />} />
           <Route path="/terms" element={<TermsOfService />} />
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/refunds" element={<RefundPolicy />} />
