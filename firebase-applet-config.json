@@ -1,11 +1,10 @@
- 
-    {
-      "projectId": "microsaas-d9323",
-      "appId": "1:210149898782:web:195a733cd5a7cdbfa74c0f",
-      "apiKey": "AIzaSyCUzZMqo0iC3qeruhTydVad3eSYmMQDFqI",
-      "authDomain": "microsaas-d9323.firebaseapp.com",
-      "firestoreDatabaseId": "(default)",
-      "storageBucket": "microsaas-d9323.firebasestorage.app",
-      "messagingSenderId": "210149898782",
-      "measurementId": ""
-    }
+{
+  "projectId": "microsaas-d9323",
+  "appId": "1:210149898782:web:195a733cd5a7cdbfa74c0f",
+  "apiKey": "AIzaSyCUzZMqo0iC3qeruhTydVad3eSYmMQDFqI",
+  "authDomain": "microsaas-d9323.firebaseapp.com",
+  "firestoreDatabaseId": "(default)",
+  "storageBucket": "microsaas-d9323.firebasestorage.app",
+  "messagingSenderId": "210149898782",
+  "measurementId": "PASTE_YOUR_MEASUREMENT_ID"
+}
