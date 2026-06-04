@@ -1,8 +1,8 @@
-import app from '../server';
+import app from './dist/server.cjs';
 
 export default function handler(req: any, res: any) {
   if (!app) {
-    return res.status(500).json({ error: 'SERVER_MODULE_LOAD_FAILED', source: 'server.ts' });
+    return res.status(500).json({ error: 'SERVER_MODULE_LOAD_FAILED', source: 'dist/server.cjs' });
   }
   try {
     return app(req, res);
