@@ -1,25 +1,27 @@
-const serverPath = './dist/server.cjs';
+let cachedApp: any = null;
+let loadError: string | null = null;
 
 function loadServer() {
-  let mod: any;
+  if (cachedApp) return cachedApp;
   try {
-    mod = require(serverPath);
-  } catch {
-    return null;
+    const mod = require('./dist/server.cjs');
+    cachedApp = mod && (mod.default || mod);
+  } catch (err) {
+    loadError = err instanceof Error ? err.message : 'Unknown require failure';
   }
-  return mod && (mod.default || mod);
-}
-
-let app: any = null;
-try {
-  app = loadServer();
-} catch {
-  app = null;
+  return cachedApp;
 }
 
 export default function handler(req: any, res: any) {
+  const app = loadServer();
   if (!app) {
-    return res.status(500).json({ error: 'SERVER_MODULE_LOAD_FAILED', source: 'dist/server.cjs' });
+    const source = loadError || 'Unknown';
+    return res.status(500).json({ error: 'SERVER_MODULE_LOAD_FAILED', source, reason: 'dist/server.cjs failed to load' });
   }
-  return app(req, res);
+  try {
+    return app(req, res);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown runtime error';
+    return res.status(500).json({ error: 'APP_RUNTIME_ERROR', message });
+  }
 }
