@@ -2,7 +2,11 @@ export default async function handler(req: any, res: any) {
   let app: any = null;
   try {
     const mod = await import('./dist/server.cjs');
-    app = (mod as any).default ?? (mod as any);
+    const candidate = (mod as any).default ?? (mod as any);
+    app = candidate;
+    if (typeof app !== 'function' && typeof candidate === 'object' && 'default' in candidate) {
+      app = candidate.default;
+    }
   } catch (e) {
     console.error('Failed to load server bundle:', e);
   }
@@ -15,7 +19,11 @@ export default async function handler(req: any, res: any) {
     });
     return res.status(500).json({
       error: 'SERVER_MODULE_LOAD_FAILED',
-      detail: typeof mod === 'object' ? { hasDefault: !!mod.default, keys: Object.keys(mod), defaultType: typeof mod.default } : { raw: typeof mod },
+      detail: typeof mod === 'object' ? {
+        hasDefault: !!mod.default,
+        typeofDefault: typeof mod.default,
+        keys: Object.keys(mod ?? {}),
+      } : { raw: typeof mod },
     });
   }
   try {
