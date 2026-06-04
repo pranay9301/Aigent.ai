@@ -14,7 +14,7 @@ describe("Server endpoints", () => {
       expect(res.body.services.paypal).toBeDefined();
       expect(res.body.services.razorpay).toBeDefined();
       expect(res.body.services.cache).toBeDefined();
-      expect(res.body.version).toBe("1.2.2-neural");
+      expect(res.body.version).toBe("1.2.3-neural");
     });
   });
 

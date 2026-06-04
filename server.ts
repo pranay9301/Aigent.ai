@@ -6,7 +6,11 @@ import crypto from "crypto";
 import { pruneContext, cache, setPersistFn } from "./src/lib/neural-optim";
 import { persistCacheEntry } from "./src/lib/server-cache";
 
-dotenv.config({ path: ".env.local" });
+try {
+  dotenv.config({ path: ".env.local" });
+} catch {
+  // ignore dotenv config errors
+}
 
 const rateLimitMap = new Map();
 function rateLimit(windowMs, maxRequests) {
@@ -37,11 +41,22 @@ setPersistFn(persistCacheEntry);
 async function recordAuditLog(action, userId, details) {
   try {
     const adminSdk = await import("firebase-admin");
-    if (!adminSdk.apps.length) {
-      const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY) : undefined;
-      if (serviceAccount || process.env.FIREBASE_PROJECT_ID) {
+    let serviceAccount;
+    try {
+      serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY) : undefined;
+    } catch {
+      serviceAccount = undefined;
+    }
+    if (serviceAccount && typeof serviceAccount === 'object') {
+      if (!adminSdk.apps.length) {
         adminSdk.initializeApp({
-          credential: serviceAccount ? adminSdk.credential.cert(serviceAccount) : adminSdk.credential.applicationDefault(),
+          credential: adminSdk.credential.cert(serviceAccount),
+        });
+      }
+    } else if (process.env.FIREBASE_PROJECT_ID) {
+      if (!adminSdk.apps.length) {
+        adminSdk.initializeApp({
+          credential: adminSdk.credential.applicationDefault(),
         });
       }
     }
@@ -95,6 +110,7 @@ const handleHealth = (req, res) => {
     const services: Record<string, string> = { api: "ok" } as Record<string, string>;
     services.gemini = process.env.GEMINI_API_KEY ? "healthy" : "missing";
     services.razorpay = process.env.RAZORPAY_KEY_ID ? "healthy" : "missing";
+    services.paypal = process.env.PAYPAL_CLIENT_ID ? "healthy" : "missing";
     services.firebase = process.env.FIREBASE_PROJECT_ID ? "healthy" : "missing";
     services.email = process.env.RESEND_API_KEY ? "healthy" : "missing";
     const hasFirebaseCreds = !!(process.env.FIREBASE_PROJECT_ID || process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
@@ -209,11 +225,22 @@ app.post("/api/contact", async (req, res) => {
 
   try {
     const adminSdk = await import("firebase-admin");
-    if (!adminSdk.apps.length) {
-      const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY) : undefined;
-      if (serviceAccount || process.env.FIREBASE_PROJECT_ID) {
+    let serviceAccount;
+    try {
+      serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY) : undefined;
+    } catch {
+      serviceAccount = undefined;
+    }
+    if (serviceAccount && typeof serviceAccount === 'object') {
+      if (!adminSdk.apps.length) {
         adminSdk.initializeApp({
-          credential: serviceAccount ? adminSdk.credential.cert(serviceAccount) : adminSdk.credential.applicationDefault(),
+          credential: adminSdk.credential.cert(serviceAccount),
+        });
+      }
+    } else if (process.env.FIREBASE_PROJECT_ID) {
+      if (!adminSdk.apps.length) {
+        adminSdk.initializeApp({
+          credential: adminSdk.credential.applicationDefault(),
         });
       }
     }
@@ -356,7 +383,7 @@ const verifyUserSubscription = async (userId) => {
   try {
     const adminSdk = await import("firebase-admin");
     if (!adminSdk.apps.length) {
-      const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY) : undefined;
+      const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY || '{}');
       if (serviceAccount || process.env.FIREBASE_PROJECT_ID) {
         adminSdk.initializeApp({
           credential: serviceAccount ? adminSdk.credential.cert(serviceAccount) : adminSdk.credential.applicationDefault(),
@@ -386,7 +413,7 @@ app.post("/api/tasks/execute", async (req, res) => {
     try {
       const adminSdk = await import("firebase-admin");
       if (!adminSdk.apps.length) {
-        const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY) : undefined;
+        const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY || '{}');
         if (serviceAccount || process.env.FIREBASE_PROJECT_ID) {
           adminSdk.initializeApp({
             credential: serviceAccount ? adminSdk.credential.cert(serviceAccount) : adminSdk.credential.applicationDefault(),
@@ -414,7 +441,7 @@ app.post("/api/tasks/execute", async (req, res) => {
   try {
     const adminSdk = await import("firebase-admin");
     if (!adminSdk.apps.length) {
-      const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY) : undefined;
+      const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY || '{}');
       if (serviceAccount || process.env.FIREBASE_PROJECT_ID) {
         adminSdk.initializeApp({
           credential: serviceAccount ? adminSdk.credential.cert(serviceAccount) : adminSdk.credential.applicationDefault(),
@@ -455,7 +482,7 @@ app.post("/api/tasks/execute", async (req, res) => {
   try {
     const adminSdk = await import("firebase-admin");
     if (!adminSdk.apps.length) {
-      const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY) : undefined;
+      const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY || '{}');
       if (serviceAccount || process.env.FIREBASE_PROJECT_ID) {
         adminSdk.initializeApp({
           credential: serviceAccount ? adminSdk.credential.cert(serviceAccount) : adminSdk.credential.applicationDefault(),
@@ -549,45 +576,72 @@ app.post("/api/razorpay/verify-payment", async (req, res) => {
       });
     });
 
+    const adminSdk = await import("firebase-admin");
+    if (!adminSdk.apps.length) {
+      const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY || '{}');
+      if (serviceAccount || process.env.FIREBASE_PROJECT_ID) {
+        adminSdk.initializeApp({
+          credential: serviceAccount ? adminSdk.credential.cert(serviceAccount) : adminSdk.credential.applicationDefault(),
+        });
+      }
+    }
+    const db = adminSdk.apps.length ? adminSdk.default.firestore() : null;
+
     if (!orderDetails) {
-      const billingRef = admin.firestore().collection("transactions").doc();
-      await billingRef.set({ razorpayOrderId, razorpayPaymentId, planName: planName || "unknown", amount: amount != null ? String(amount) : "0", status: "failed", failureReason: "Order fetch failed", createdAt: new Date().toISOString() });
+      if (db) {
+        const billingRef = db.collection("transactions").doc();
+        await billingRef.set({ razorpayOrderId, razorpayPaymentId, planName: planName || "unknown", amount: amount != null ? String(amount) : "0", status: "failed", failureReason: "Order fetch failed", createdAt: new Date().toISOString() });
+      }
       return res.status(502).json({ error: "ORDER_FETCH_FAILED" });
     }
 
     if (orderDetails.status !== "paid" && orderDetails.status !== "authorized") {
-      const billingRef = admin.firestore().collection("transactions").doc();
-      await billingRef.set({ razorpayOrderId, razorpayPaymentId, planName: planName || "unknown", amount: amount != null ? String(amount) : "0", status: "failed", failureReason: `Order status: ${orderDetails.status}`, createdAt: new Date().toISOString() });
+      if (db) {
+        const billingRef = db.collection("transactions").doc();
+        await billingRef.set({ razorpayOrderId, razorpayPaymentId, planName: planName || "unknown", amount: amount != null ? String(amount) : "0", status: "failed", failureReason: `Order status: ${orderDetails.status}`, createdAt: new Date().toISOString() });
+      }
       return res.status(400).json({ error: "ORDER_NOT_PAID", status: orderDetails.status });
     }
 
-    await admin.firestore().collection("transactions").add({
-      razorpayOrderId,
-      razorpayPaymentId,
-      razorpaySignature,
-      planName: planName || "unknown",
-      amount: amount != null ? String(amount) : "0",
-      status: "success",
-      failureReason: null,
-      createdAt: new Date().toISOString(),
-    });
-
-    res.json({ verified: true, orderId: razorpayOrderId, paymentId: razorpayPaymentId, planName, amount });
-  } catch (err: any) {
-    console.error("Razorpay verify error:", err);
-    try {
-      const adminSdk = await import("firebase-admin");
-      const db = adminSdk.default.firestore();
+    if (db) {
       await db.collection("transactions").add({
         razorpayOrderId,
         razorpayPaymentId,
         razorpaySignature,
         planName: planName || "unknown",
         amount: amount != null ? String(amount) : "0",
-        status: "failed",
-        error: err?.message || "Verification failed",
+        status: "success",
+        failureReason: null,
         createdAt: new Date().toISOString(),
       });
+    }
+
+    res.json({ verified: true, orderId: razorpayOrderId, paymentId: razorpayPaymentId, planName, amount });
+  } catch (err: any) {
+    console.error("Razorpay verify error:", err);
+    try {
+      const adminSdk = await import("firebase-admin");
+      if (!adminSdk.apps.length) {
+        const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY || '{}');
+        if (serviceAccount || process.env.FIREBASE_PROJECT_ID) {
+          adminSdk.initializeApp({
+            credential: serviceAccount ? adminSdk.credential.cert(serviceAccount) : adminSdk.credential.applicationDefault(),
+          });
+        }
+      }
+      const db = adminSdk.apps.length ? adminSdk.default.firestore() : null;
+      if (db) {
+        await db.collection("transactions").add({
+          razorpayOrderId,
+          razorpayPaymentId,
+          razorpaySignature,
+          planName: planName || "unknown",
+          amount: amount != null ? String(amount) : "0",
+          status: "failed",
+          error: err?.message || "Verification failed",
+          createdAt: new Date().toISOString(),
+        });
+      }
     } catch {
       // ignore audit failures on verification failure path
     }
@@ -608,7 +662,7 @@ app.post("/api/razorpay/webhook", async (req, res) => {
     try {
       const adminSdk = await import("firebase-admin");
       if (!adminSdk.apps.length) {
-        const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY) : undefined;
+        const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY || '{}');
         if (serviceAccount || process.env.FIREBASE_PROJECT_ID) {
           adminSdk.initializeApp({
             credential: serviceAccount ? adminSdk.credential.cert(serviceAccount) : adminSdk.credential.applicationDefault(),
