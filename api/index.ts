@@ -1,13 +1,8 @@
-// Vercel serverless function entry point
-let cached: any;
+import app from '../dist/server.cjs';
 
 export default async function handler(req: any, res: any) {
-  if (!cached) {
-    const m = await import('../dist/server.cjs');
-    cached = (m && (m.default || m)) || null;
+  if (!app || typeof app !== 'function') {
+    return res.status(500).json({ error: 'SERVER_MODULE_LOAD_FAILED', hint: 'Request handler import failed' });
   }
-  if (!cached || typeof cached !== 'function') {
-    return res.status(500).json({ error: 'SERVER_MODULE_LOAD_FAILED', hint: 'dist/server.cjs did not export a request handler' });
-  }
-  return cached(req, res);
+  return app(req, res);
 }
