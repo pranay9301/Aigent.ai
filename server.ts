@@ -1,5 +1,6 @@
 import express from "express";
 import path from "path";
+import fs from "fs";
 import { Type } from "@google/genai";
 import dotenv from "dotenv";
 import crypto from "crypto";
@@ -443,12 +444,12 @@ app.post("/api/razorpay/create-order", async (req, res) => {
     const amount = amountMap[normalizedPlan];
     if (!amount) return res.status(400).json({ error: "INVALID_PLAN" });
 
-    const order = await new Promise((resolve, reject) => {
-      rzp.orders.create({ amount, currency: "USD", receipt: `order_${Date.now()}` }, (err, order) => {
-        if (err) reject(err);
-        else resolve(order);
-      });
-    });
+    let order: any;
+    try {
+      order = await rzp.orders.create({ amount, currency: "USD", receipt: `order_${Date.now()}` });
+    } catch (err: any) {
+      return res.status(400).json({ error: "RAZORPAY_ORDER_FAILED", message: err?.message || "Razorpay rejected the order" });
+    }
 
     res.json({
       id: order.id,
@@ -459,7 +460,7 @@ app.post("/api/razorpay/create-order", async (req, res) => {
     });
   } catch (err: any) {
     console.error("Razorpay create order failed:", err);
-    res.status(500).json({ error: "RAZORPAY_ORDER_FAILED", message: err.message || "Failed to create order" });
+    res.status(500).json({ error: "RAZORPAY_ORDER_FAILED", message: err?.message || "Failed to create order" });
   }
 });
 
@@ -615,11 +616,8 @@ app.use(express.static(path.resolve("dist/client")));
 app.get("*", (req, res) => {
   if (req.path.startsWith("/api")) return res.status(404).json({ error: "Not found" });
   const clientPath = path.resolve("dist/client/index.html");
-  try {
-    res.sendFile(clientPath);
-  } catch {
-    res.status(404).json({ error: "Client build not available" });
-  }
+  if (!fs.existsSync(clientPath)) return res.status(404).json({ error: "Client build not available" });
+  res.sendFile(clientPath);
 });
 
 app.use((err, req, res, next) => {
