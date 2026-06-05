@@ -70,7 +70,6 @@ async function recordAuditLog(action, userId, details) {
 }
 
 let GoogleGenAI = null;
-let paypal = null;
 let Razorpay = null;
 const cacheObj = cache;
 
@@ -87,7 +86,7 @@ const getAI = async () => {
 const getRazorpay = async () => {
   if (!Razorpay) {
     const mod = await import("razorpay");
-    Razorpay = (mod && mod.default) || mod;
+    Razorpay = (mod && (mod as any).default) || mod;
   }
   const key_id = process.env.RAZORPAY_KEY_ID || "";
   const key_secret = process.env.RAZORPAY_KEY_SECRET || "";
@@ -98,19 +97,11 @@ const getRazorpay = async () => {
   return new Razorpay({ key_id, key_secret });
 };
 
-const getPayPalSDK = async () => {
-  if (!paypal) {
-    paypal = (await import("@paypal/checkout-server-sdk")).default;
-  }
-  return paypal;
-};
-
 const handleHealth = (req, res) => {
   try {
     const services: Record<string, string> = { api: "ok" } as Record<string, string>;
     services.gemini = process.env.GEMINI_API_KEY ? "healthy" : "missing";
     services.razorpay = process.env.RAZORPAY_KEY_ID ? "healthy" : "missing";
-    services.paypal = process.env.PAYPAL_CLIENT_ID ? "healthy" : "missing";
     services.firebase = process.env.FIREBASE_PROJECT_ID ? "healthy" : "missing";
     services.email = process.env.RESEND_API_KEY ? "healthy" : "missing";
     const hasFirebaseCreds = !!(process.env.FIREBASE_PROJECT_ID || process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
@@ -300,71 +291,6 @@ app.post("/api/ai/build", async (req, res) => {
     res.json({ plan, files });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
-  }
-});
-
-let paypalClientInstance = null;
-
-const getPayPalClient = async () => {
-  if (paypalClientInstance) return paypalClientInstance;
-  const clientId = process.env.PAYPAL_CLIENT_ID || process.env.VITE_PAYPAL_CLIENT_ID || "";
-  const clientSecret = process.env.PAYPAL_CLIENT_SECRET || process.env.VITE_PAYPAL_CLIENT_SECRET || "";
-  if (!clientId || !clientSecret || clientId === "sb") return null;
-  try {
-    const pp = await getPayPalSDK();
-    const mode = (process.env.PAYPAL_MODE || "live").toLowerCase();
-    const environment = mode === "live" ? new pp.core.LiveEnvironment(clientId, clientSecret) : new pp.core.SandboxEnvironment(clientId, clientSecret);
-    console.log(`Neural Infrastructure: PayPal initializing in ${mode} mode.`);
-    paypalClientInstance = new pp.core.PayPalHttpClient(environment);
-    return paypalClientInstance;
-  } catch (err) {
-    console.error("PayPal Infrastructure Critical Error:", err);
-    return null;
-  }
-};
-
-app.post("/api/paypal/create-order", async (req, res) => {
-  try {
-    const client = await getPayPalClient();
-    if (!client) {
-      console.error("PayPal Order Error: Client Not Configured");
-      return res.status(503).json({ error: "PAYPAL_NOT_CONFIGURED" });
-    }
-    const { amount, planName } = req.body;
-    const pp = await getPayPalSDK();
-    const request = new pp.orders.OrdersCreateRequest();
-    request.prefer("return=representation");
-    request.requestBody({
-      intent: "CAPTURE",
-      purchase_units: [{ amount: { currency_code: "USD", value: amount }, description: `Aigent.ai - ${planName} Subscription` }],
-    });
-    const order = await client.execute(request);
-    console.log(`PayPal Order Created: ${order.result.id}`);
-    res.json({ id: order.result.id });
-  } catch (err: any) {
-    console.error("PayPal Order Execution Failure:", { message: err.message, statusCode: err.statusCode, details: err.result || err.details });
-    res.status(500).json({ error: "PAYMENT_EXECUTION_FAILURE", message: err.message, code: err.statusCode });
-  }
-});
-
-app.post("/api/paypal/capture-order", async (req, res) => {
-  try {
-    const client = await getPayPalClient();
-    if (!client) {
-      console.error("PayPal Capture Error: Client Not Configured");
-      return res.status(503).json({ error: "PAYPAL_NOT_CONFIGURED" });
-    }
-    const { orderID } = req.body;
-    const pp = await getPayPalSDK();
-    const request = new pp.orders.OrdersCaptureRequest(orderID);
-    request.prefer("return=representation");
-    request.requestBody({});
-    const capture = await client.execute(request);
-    console.log(`PayPal Order Captured: ${capture.result.id}`);
-    res.json({ status: capture.result.status, id: capture.result.id });
-  } catch (err: any) {
-    console.error("PayPal Capture Execution Failure:", { message: err.message, statusCode: err.statusCode, details: err.result || err.details });
-    res.status(500).json({ error: "PAYMENT_CAPTURE_FAILURE", message: err.message, code: err.statusCode });
   }
 });
 
@@ -688,7 +614,12 @@ app.post("/api/deploy/ai", async (req, res) => {
 app.use(express.static(path.resolve("dist/client")));
 app.get("*", (req, res) => {
   if (req.path.startsWith("/api")) return res.status(404).json({ error: "Not found" });
-  res.sendFile(path.resolve("dist/client/index.html"));
+  const clientPath = path.resolve("dist/client/index.html");
+  try {
+    res.sendFile(clientPath);
+  } catch {
+    res.status(404).json({ error: "Client build not available" });
+  }
 });
 
 app.use((err, req, res, next) => {

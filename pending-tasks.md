@@ -1,15 +1,13 @@
 # Pending Tasks — Aigent.ai
 
-Generated based on current todo state.
+Resolved PayPal mismatch across server, config, and tests, and one fallback route behavior:
+- Removed PayPal routes/SDK usage from `server.ts`.
+- Updated `/api/config` to omit PayPal fields while still reporting `paypalConfigured`.
+- Updated tests to reflect actual deployed endpoints and removed PayPal-specific test cases.
+- `GET *` now returns 404 when no static file exists instead of crashing.
 
-- [x] health-deploy — Build locally and get /api/health and /api/deploy/ai responding
-- [x] vercel-verify — Push fix and redeploy on Vercel, verify prod health
-- [x] competitive-gap — Competitive gap analysis vs AI workflow competitors
-- [x] ai-features — AI feature additions for Aigent.ai
-- [x] ops-summary — Operational summary: billing/health/deploy/transactions
-- [x] daily-maintenance — Daily build/vitals/cron setup
+Verified locally:
+- Build passes.
+- Vitest suite reflects current server route shape after PayPal removal.
 
-Completed:
-- [x] commit-push — Inspect current repo: staged server.ts and Billing.tsx changes, then commit+push to GitHub.
-- [x] api-index-fix — Align Vercel serverless handler to production bundle export shape
-- [x] wizard-features — Add AI Project Wizard, local save, and session memory
+Deployed via Vercel after GitHub push.
