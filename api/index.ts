@@ -1,4 +1,7 @@
 // @ts-ignore
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const serverMod: any = require('./dist/server.cjs');
