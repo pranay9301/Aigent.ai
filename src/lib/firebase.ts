@@ -1,4 +1,4 @@
-import { initializeApp } from "firebase/app";
+import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider, GithubAuthProvider } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import firebaseConfig from "../../firebase-applet-config.json";
@@ -14,7 +14,7 @@ const firebaseConfigEnv = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID || firebaseConfig.appId,
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || firebaseConfig.measurementId,
   firestoreDatabaseId: import.meta.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID || firebaseConfig.firestoreDatabaseId,
-};
+} as const;
 
 function assertFirebaseApiKey(value: string | undefined) {
   if (!value || typeof value === 'undefined' || value === 'null') {
@@ -32,10 +32,10 @@ function assertFirebaseApiKey(value: string | undefined) {
 }
 
 assertFirebaseApiKey(firebaseConfigEnv.apiKey);
-firebaseConfigEnv.apiKey = firebaseConfigEnv.apiKey.trim();
 
 try {
-  app = initializeApp(firebaseConfigEnv);
+  const existingApps = getApps();
+  app = existingApps.length > 0 ? existingApps[0] : initializeApp(firebaseConfigEnv);
 } catch (err) {
   console.error('[Aigent.ai][firebase] initializeApp failed:', err, '\nConfig:', firebaseConfigEnv);
   throw err;
