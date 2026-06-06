@@ -23,6 +23,7 @@
     "secrets:setup": "bash scripts/setup-secrets.sh"
   },
   "dependencies": {
+    "@google-cloud/firestore": "^8.6.0",
     "@google/genai": "^1.29.0",
     "@monaco-editor/react": "^4.7.0",
     "@paypal/checkout-server-sdk": "^1.0.3",
@@ -36,6 +37,7 @@
     "firebase": "^12.13.0",
     "firebase-admin": "^13.10.0",
     "framer-motion": "^12.38.0",
+    "google-gax": "^5.0.7",
     "lucide-react": "^0.468.0",
     "motion": "^12.23.24",
     "razorpay": "^2.9.6",
