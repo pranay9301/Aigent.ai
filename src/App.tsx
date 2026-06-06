@@ -1,26 +1,37 @@
 import { HashRouter as Router, Routes, Route, Navigate } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense, lazy } from "react";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { auth, db } from "./lib/firebase";
 import LandingPage from "./pages/LandingPage";
 import Dashboard from "./pages/Dashboard";
-import Workspace from "./pages/Workspace";
 import AuthPage from "./pages/AuthPage";
-import AdminPanel from "./pages/AdminPanel";
-import Billing from "./pages/Billing";
-import Projects from "./pages/Projects";
-import AIProjectWizard from "./pages/AIProjectWizard";
 import TermsOfService from "./pages/TermsOfService";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import RefundPolicy from "./pages/RefundPolicy";
 import ShippingPolicy from "./pages/ShippingPolicy";
 import ContactUs from "./pages/ContactUs";
 import AboutUs from "./pages/AboutUs";
-import Company from "./pages/Company";
 import Navbar from "./components/layout/Navbar";
 import ErrorBoundary from "./components/ui/ErrorBoundary";
 import { ThemeProvider } from "./lib/ThemeContext";
+
+const Workspace = lazy(() => import("./pages/Workspace"));
+const AdminPanel = lazy(() => import("./pages/AdminPanel"));
+const Billing = lazy(() => import("./pages/Billing"));
+const Projects = lazy(() => import("./pages/Projects"));
+const AIProjectWizard = lazy(() => import("./pages/AIProjectWizard"));
+const Company = lazy(() => import("./pages/Company"));
+
+function RouteLoader() {
+  return (
+    <div className="h-screen w-screen flex items-center justify-center bg-black">
+      <div className="text-blue-500 font-mono tracking-widest uppercase italic font-black">
+        LOADING...
+      </div>
+    </div>
+  );
+}
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -59,6 +70,7 @@ export default function App() {
       <Router>
         <div className="min-h-screen bg-white dark:bg-black text-slate-900 dark:text-white transition-colors duration-300 selection:bg-blue-500/30">
           <Navbar user={user} userRole={userRole} />
+          <Suspense fallback={<RouteLoader />}>
           <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/auth" element={!user ? <AuthPage /> : <Navigate to="/dashboard" />} />
@@ -76,6 +88,7 @@ export default function App() {
           <Route path="/contact" element={<ContactUs />} />
           <Route path="/about" element={<AboutUs />} />
         </Routes>
+        </Suspense>
       </div>
     </Router>
   </ThemeProvider>
