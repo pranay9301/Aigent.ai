@@ -400,7 +400,7 @@ app.post("/api/tasks/execute", async (req, res) => {
     return res.status(500).json({ error: err.message || "Failed to load task" });
   }
 
-  let executionResult = { success: false, output: null, error: null };
+  let executionResult = { success: false, output: null, error: null as string | null };
   try {
     const ai = await getAI();
     if (!ai) throw new Error("AI service unavailable");
@@ -410,7 +410,7 @@ app.post("/api/tasks/execute", async (req, res) => {
       contents: prompt,
       config: { systemInstruction: "You are an autonomous AI agent executing business tasks.", temperature: 0.7 },
     });
-    executionResult = { success: true, output: response.text };
+    executionResult = { success: true, output: response.text, error: null };
   } catch (err: any) {
     console.error("Task execution failed:", err);
     executionResult = { success: false, output: null, error: err.message || "Execution failed" };
@@ -504,7 +504,7 @@ app.post("/api/razorpay/verify-payment", async (req, res) => {
       return res.status(400).json({ error: "INVALID_SIGNATURE" });
     }
 
-    const orderDetails = await new Promise((resolve, reject) => {
+    const orderDetails = await new Promise<Record<string, any>>((resolve, reject) => {
       const rzp = Razorpay ? new Razorpay({ key_id: process.env.RAZORPAY_KEY_ID || "", key_secret: process.env.RAZORPAY_KEY_SECRET || "" }) : null;
       if (!rzp) return reject(new Error("RAZORPAY_NOT_CONFIGURED"));
       rzp.orders.fetch(razorpayOrderId, (err, order) => {
