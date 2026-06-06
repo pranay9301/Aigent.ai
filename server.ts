@@ -7,6 +7,16 @@ import crypto from "crypto";
 import { pruneContext, cache, setPersistFn } from "./src/lib/neural-optim";
 import { persistCacheEntry } from "./src/lib/server-cache";
 
+const DEBUG_TOKEN = process.env.DEBUG_TOKEN || "";
+
+function requireDebugAuth(req, res, next) {
+  const token = (req.headers["x-debug-token"] || req.query.debug_token || req.body?.debug_token || "") as string;
+  if (!DEBUG_TOKEN || token !== DEBUG_TOKEN) {
+    return res.status(403).json({ error: "FORBIDEN_DEBUG_ACCESS" });
+  }
+  next();
+}
+
 try {
   dotenv.config({ path: ".env.local" });
 } catch {
@@ -522,12 +532,24 @@ app.post("/api/razorpay/verify-payment", async (req, res) => {
       return res.status(502).json({ error: "ORDER_FETCH_FAILED" });
     }
 
-    if (orderDetails.status !== "paid" && orderDetails.status !== "authorized") {
+    const allowedStatuses = ["paid", "authorized"];
+    const orderStatus = typeof orderDetails?.status === "string" ? orderDetails.status.toLowerCase() : "";
+    const orderAmount = typeof orderDetails?.amount === "number" ? orderDetails.amount : null;
+    const authorizedWithCapture = orderStatus === "authorized" && typeof orderDetails?.amount_captured === "number" && orderDetails.amount_captured > 0;
+    if (!allowedStatuses.includes(orderStatus) || (orderStatus === "authorized" && !authorizedWithCapture)) {
       if (db) {
         const billingRef = db.collection("transactions").doc();
-        await billingRef.set({ razorpayOrderId, razorpayPaymentId, planName: planName || "unknown", amount: amount != null ? String(amount) : "0", status: "failed", failureReason: `Order status: ${orderDetails.status}`, createdAt: new Date().toISOString() });
+        await billingRef.set({ razorpayOrderId, razorpayPaymentId, planName: planName || "unknown", amount: amount != null ? String(amount) : "0", status: "failed", failureReason: `Unsupported order status: ${orderDetails?.status}`, createdAt: new Date().toISOString() });
       }
-      return res.status(400).json({ error: "ORDER_NOT_PAID", status: orderDetails.status });
+      return res.status(400).json({ error: "ORDER_NOT_PAID", status: orderDetails?.status });
+    }
+
+    if (orderAmount && orderAmount > 0 && amount != null && Number(amount) !== orderAmount) {
+      if (db) {
+        const billingRef = db.collection("transactions").doc();
+        await billingRef.set({ razorpayOrderId, razorpayPaymentId, planName: planName || "unknown", amount: amount != null ? String(amount) : "0", status: "failed", failureReason: "Amount mismatch", createdAt: new Date().toISOString() });
+      }
+      return res.status(400).json({ error: "AMOUNT_MISMATCH" });
     }
 
     if (db) {
@@ -610,6 +632,37 @@ app.post("/api/razorpay/webhook", async (req, res) => {
 app.post("/api/deploy/ai", async (req, res) => {
   const { target = "vercel" } = req.body;
   res.status(410).json({ error: "DEPLOY_ENDPOINT_DEPRECATED", message: "Use the Vercel integration or local build pipeline instead." });
+});
+
+app.use(requireDebugAuth, express.json());
+app.get("/api/status/debug", (req, res) => {
+  const skipped = ["REDIS_URL", "DATABASE_URL"];
+  const report: Record<string, any> = { ok: true, env: {} };
+  for (const [name, value] of Object.entries(process.env)) {
+    if (!skipped.includes(name)) {
+      report.env[name] = value ? `${value.slice(0, 6)}****` : value;
+    }
+  }
+  report.services = {
+    raven: process.env.RAVEN_API_KEY ? "configured" : "missing",
+    gemini: process.env.GEMINI_API_KEY ? "configured" : "missing",
+    razorpay: process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET ? "configured" : "missing",
+    resend: process.env.RESEND_API_KEY ? "configured" : "missing",
+    firebase: process.env.FIREBASE_SERVICE_ACCOUNT_KEY || process.env.FIREBASE_PROJECT_ID ? "configured" : "missing",
+    openai: process.env.OPENAI_API_KEY ? "configured" : "missing",
+    anthropic: process.env.ANTHROPIC_API_KEY ? "configured" : "missing",
+    geminiKey: "configured",
+  };
+  report.routes = [];
+  if (app._router) {
+    const routes = app._router.stack.filter((r) => r.route);
+    for (const r of routes) {
+      const path = r.route?.path;
+      const methods = Object.keys(r.route?.methods || {}).join(",") || "middleware";
+      if (path) report.routes.push({ methods, path: path.toString() });
+    }
+  }
+  res.json(report);
 });
 
 app.use(express.static(path.resolve("dist/client")));
