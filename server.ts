@@ -113,7 +113,7 @@ const handleHealth = (req, res) => {
     const services: Record<string, string> = { api: "ok" } as Record<string, string>;
     services.gemini = process.env.GEMINI_API_KEY ? "healthy" : "missing";
     services.razorpay = process.env.RAZORPAY_KEY_ID ? "healthy" : "missing";
-    services.firebase = process.env.FIREBASE_PROJECT_ID ? "healthy" : "missing";
+    services.firebase = (process.env.FIREBASE_PROJECT_ID || process.env.FIREBASE_SERVICE_ACCOUNT_KEY) ? "healthy" : "missing";
     services.email = process.env.RESEND_API_KEY ? "healthy" : "missing";
     const hasFirebaseCreds = !!(process.env.FIREBASE_PROJECT_ID || process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
     services.cache = hasFirebaseCreds ? "persisted" : "in-memory";

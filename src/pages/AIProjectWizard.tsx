@@ -54,13 +54,20 @@ export default function AIProjectWizard() {
   const restoredPrompt = restored?.prompt ?? "";
   const restoredResults = restored?.results ?? {};
 
+  const stepId = WIZARD_STEPS[stepIndex]?.id;
+  const stepResult = results[stepId] || restoredResults[stepId];
+  const hasStoredProject = Boolean(getWizardSession());
+  const wasRestored = Boolean(restoredResults[stepId]);
+
   const current = WIZARD_STEPS[stepIndex];
   const currentRole = ROLES_BY_STEP[current.id];
 
   const runStep = async (role: string, stepPrompt: string) => {
+    const current = WIZARD_STEPS[stepIndex];
+    const currentRole = ROLES_BY_STEP[current.id];
     setLoading(true);
     setError("");
-    const response = await orchestrateAgent(role, stepPrompt);
+    const response = await orchestrateAgent(currentRole, stepPrompt);
     setLoading(false);
     if (response.error) {
       setError(response.error);
@@ -71,19 +78,23 @@ export default function AIProjectWizard() {
 
   const startWizard = async () => {
     if (!prompt.trim()) return;
+    const current = WIZARD_STEPS[stepIndex];
+    const role = ROLES_BY_STEP[current.id];
     const initial = `Project idea summary: ${prompt.trim()}. Suggest a clear one-paragraph project scope.`;
-    await runStep(currentRole, initial);
+    await runStep(role, initial);
   };
 
   const advance = async () => {
     const step = WIZARD_STEPS[stepIndex];
-    const previousResult = results[step.id] || restoredResults[step.id];
-    if (!previousResult) return;
+    const stepPrompt = stepResult || restoredResults[step.id] || prompt;
+    if (!stepPrompt) return;
     if (stepIndex + 1 >= WIZARD_STEPS.length) {
-      saveProject(prompt);
+      await saveProject(prompt || restoredPrompt || "aigent-project");
       return;
     }
-    setStepIndex((prev) => prev + 1);
+    const role = ROLES_BY_STEP[WIZARD_STEPS[stepIndex + 1].id];
+    const context = `Wizard context: ${stepPrompt}`;
+    await runStep(role, context);
   };
 
   const back = async () => {
