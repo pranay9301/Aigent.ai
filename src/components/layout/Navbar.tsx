@@ -38,6 +38,9 @@ export default function Navbar({ user, userRole }: { user: any; userRole?: strin
             <Link to="/projects" className="font-medium text-slate-500 dark:text-slate-400 hover:text-cyan-500 dark:hover:text-white transition-colors flex items-center gap-2">
               <Folder className="w-4 h-4" /> <span className="hidden sm:inline">Projects</span>
             </Link>
+            <Link to="/orchestrator" className="font-medium text-slate-500 dark:text-slate-400 hover:text-cyan-500 dark:hover:text-white transition-colors flex items-center gap-2">
+              <MessageSquare className="w-4 h-4" /> <span className="hidden sm:inline">Orchestrator</span>
+            </Link>
             <Link to="/company" className="font-medium text-slate-500 dark:text-slate-400 hover:text-cyan-500 dark:hover:text-white transition-colors flex items-center gap-2">
               <Building2 className="w-4 h-4" /> <span className="hidden sm:inline">Company</span>
             </Link>

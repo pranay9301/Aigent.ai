@@ -22,6 +22,7 @@ const Billing = lazy(() => import("./pages/Billing"));
 const Projects = lazy(() => import("./pages/Projects"));
 const AIProjectWizard = lazy(() => import("./pages/AIProjectWizard"));
 const Company = lazy(() => import("./pages/Company"));
+const OrchestratorPage = lazy(() => import("./pages/OrchestratorPage"));
 
 function RouteLoader() {
   return (
@@ -81,6 +82,7 @@ export default function App() {
           <Route path="/company" element={user ? <Company /> : <Navigate to="/auth" />} />
           <Route path="/projects" element={user ? <Projects /> : <Navigate to="/auth" />} />
           <Route path="/wizard" element={<AIProjectWizard />} />
+          <Route path="/orchestrator" element={<OrchestratorPage />} />
           <Route path="/terms" element={<TermsOfService />} />
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/refunds" element={<RefundPolicy />} />

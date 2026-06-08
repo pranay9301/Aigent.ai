@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { doc, updateDoc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
 import { db, auth } from "../lib/firebase";
 import { motion } from "motion/react";
@@ -6,7 +6,8 @@ import {
   CreditCard, Shield, Zap, BarChart3,
   ArrowUpRight, Clock, CheckCircle2,
   AlertCircle, Download, ExternalLink,
-  CreditCard as RazorpayIcon
+  CreditCard as RazorpayIcon,
+  LineChart
 } from "lucide-react";
 import { cn } from "../lib/utils";
 
@@ -208,6 +209,22 @@ export default function Billing() {
     { label: "Token Limit", value: currentTier.tokens, limit: "", percent: 0, color: "text-purple-400" },
   ];
 
+  const spendByPlan = useMemo(() => {
+    const acc: Record<string, { total: number; count: number }> = {};
+    transactions.forEach((tx) => {
+      const plan = tx.plan || "Unknown";
+      const amount = parseFloat(String(tx.amount).replace(/[^0-9.]/g, "")) || 0;
+      if (!acc[plan]) acc[plan] = { total: 0, count: 0 };
+      acc[plan].total += amount;
+      acc[plan].count += 1;
+    });
+    return acc;
+  }, [transactions]);
+
+  const totalSpend = transactions.reduce((acc, tx) => acc + (parseFloat(String(tx.amount).replace(/[^0-9.]/g, "")) || 0), 0);
+
+  const maxPlanSpend = Math.max(1, ...Object.values(spendByPlan).map((v) => v.total));
+
   return (
     <div className="pt-24 pb-12 px-6 container mx-auto">
       <motion.div
@@ -314,7 +331,40 @@ export default function Billing() {
                   <p className="text-xs text-slate-500 dark:text-slate-500 italic mb-4 font-medium uppercase tracking-tight">Select your upgrade tier below to scale your neural workforce.</p>
 
                   <div className="space-y-4">
-                    {/* Scale Tier Button */}
+                    {/* Billing analytics */}
+                    <div className="p-6 rounded-2xl bg-black/[0.02] dark:bg-white/[0.02] border border-black/5 dark:border-white/5">
+                      <div className="flex items-center justify-between mb-4">
+                        <div>
+                          <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Analytics view</span>
+                          <p className="text-[10px] text-slate-500 mt-1">Plan spend split and lifetime value</p>
+                        </div>
+                        <LineChart className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
+                      </div>
+                      <div className="space-y-3">
+                        {Object.keys(spendByPlan).length === 0 && (
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">No transaction data yet</p>
+                        )}
+                        {Object.entries(spendByPlan).map(([plan, value]) => {
+                          const width = `${Math.round((value.total / maxPlanSpend) * 100)}%`;
+                          return (
+                            <div key={plan}>
+                              <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-300">
+                                <span>{plan}</span>
+                                <span>${value.total.toFixed(2)}</span>
+                              </div>
+                              <div className="mt-1 h-1.5 w-full rounded-full bg-black/10 dark:bg-white/10 overflow-hidden">
+                                <div className="h-full rounded-full bg-cyan-500" style={{ width }} />
+                              </div>
+                              <span className="text-[9px] text-slate-500 uppercase tracking-wider font-bold">{value.count} txns</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <div className="mt-5 pt-4 border-t border-black/5 dark:border-white/5 flex items-center justify-between">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300">Lifetime spend</span>
+                        <span className="text-sm font-black text-slate-900 dark:text-white">${totalSpend.toFixed(2)}</span>
+                      </div>
+                    </div>
                     <div className="p-6 rounded-2xl bg-black/[0.02] dark:bg-white/[0.02] border border-black/5 dark:border-white/5 hover:border-cyan-500/30 transition-all">
                       <div className="flex justify-between items-center mb-6">
                         <div>
