@@ -17,16 +17,25 @@ function requireDebugAuth(req, res, next) {
   next();
 }
 
+let dotenvLoaded = false;
 try {
-  dotenv.config({ path: ".env.local" });
+  const result = dotenv.config({ path: ".env.local", quiet: true });
+  dotenvLoaded = !result.error;
 } catch {
-  // ignore dotenv config errors
+  dotenvLoaded = false;
+}
+const FALLBACK_DOTENV = () => dotenv.config({ path: ".env", quiet: true }).catch(() => undefined);
+if (!dotenvLoaded) FALLBACK_DOTENV();
+try {
+  dotenv.config();
+} catch {
+  // allow missing root .env
 }
 
 const rateLimitMap = new Map();
 function rateLimit(windowMs, maxRequests) {
   return (req, res, next) => {
-    const key = req.ip || req.socket.remoteAddress || "unknown";
+    const key = req.socket && req.socket.remoteAddress ? req.socket.remoteAddress : (req.headers["x-forwarded-for"] ? String(req.headers["x-forwarded-for"]).split(",")[0].trim() : "unknown");
     const now = Date.now();
     const entry = rateLimitMap.get(key);
     if (!entry || now > entry.resetAt) {
@@ -515,14 +524,21 @@ app.post("/api/razorpay/verify-payment", async (req, res) => {
 
     const adminSdk = await import("firebase-admin");
     if (!adminSdk.apps.length) {
-      const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY || '{}');
+      let serviceAccount;
+      try {
+        serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY) : undefined;
+      } catch {
+        serviceAccount = undefined;
+      }
       if (serviceAccount || process.env.FIREBASE_PROJECT_ID) {
         adminSdk.initializeApp({
-          credential: serviceAccount ? adminSdk.credential.cert(serviceAccount) : adminSdk.credential.applicationDefault(),
+          credential: serviceAccount
+            ? adminSdk.credential.cert(serviceAccount)
+            : adminSdk.credential.applicationDefault(),
         });
       }
     }
-    const db = adminSdk.apps.length ? adminSdk.default.firestore() : null;
+    const db = adminSdk.apps.length ? adminSdk.firestore() : null;
 
     if (!orderDetails) {
       if (db) {
@@ -578,7 +594,7 @@ app.post("/api/razorpay/verify-payment", async (req, res) => {
           });
         }
       }
-      const db = adminSdk.apps.length ? adminSdk.default.firestore() : null;
+      const db = adminSdk.apps.length ? adminSdk.firestore() : null;
       if (db) {
         await db.collection("transactions").add({
           razorpayOrderId,
