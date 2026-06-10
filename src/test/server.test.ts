@@ -57,7 +57,9 @@ describe("Server endpoints", () => {
       const res = await request(app)
         .post("/api/tasks/execute")
         .send({});
-      if (!process.env.GEMINI_API_KEY) {
+      const aiStatusCode = res.status === 200 ? 503 : res.status;
+      expect([400, 401, 403, 404, 422, 429, 500, 503]).toContain(res.status);
+      if (!process.env.GEMINI_API_KEY || aiStatusCode >= 500) {
         expect(res.status).toBe(503);
         expect(res.body.error).toBe("AI_SERVICE_UNAVAILABLE");
       }

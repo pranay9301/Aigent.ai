@@ -18,19 +18,14 @@ function requireDebugAuth(req, res, next) {
 }
 
 let dotenvLoaded = false;
-try {
-  const result = dotenv.config({ path: ".env.local", quiet: true });
+dotenv.config({ path: ".env.local", quiet: true }).then((result) => {
   dotenvLoaded = !result.error;
-} catch {
+}).catch(() => {
   dotenvLoaded = false;
-}
+});
 const FALLBACK_DOTENV = () => dotenv.config({ path: ".env", quiet: true }).catch(() => undefined);
 if (!dotenvLoaded) FALLBACK_DOTENV();
-try {
-  dotenv.config();
-} catch {
-  // allow missing root .env
-}
+dotenv.config({ path: ".env", quiet: true }).catch(() => undefined);
 
 const rateLimitMap = new Map();
 function rateLimit(windowMs, maxRequests) {
